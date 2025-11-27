@@ -1,0 +1,15 @@
+# Ignore log files
+*.log
+
+# Ignore temp folders
+env
+_datasets
+pics
+*__pycache__
+
+# Ignore pictures
+*.png
+*.jpg
+*.jpeg
+
+
