@@ -28,9 +28,19 @@ def wrap_example(context_1: str, context_2: str, template_type: str) -> str:
         )
         PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
     elif template_type == 'sen_w_t2':
-        raise ValueError(f"Unhandled template type {template_type}")
+        PROMPT_TEMPLATE = (
+            "context 1: {c1}; \ncontext 2: {c2}.\n "
+            "Task: classify SMS incontext 2 as spam or ham (not a spam).\n"
+            "Context 2 is classified as _"
+        )
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
     elif template_type == 'sen_w_b':
-        raise ValueError(f"Unhandled template type {template_type}")
+        PROMPT_TEMPLATE = (
+            "context 1: {c1}; \ncontext 2: {c2}.\n "
+            # "Task: classify SMS incontext 2 as spam or ham (not a spam).\n"
+            # "Context 2 is classified as _"
+        )
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
     elif template_type == 'lay_w_t1':
         raise ValueError(f"Unhandled template type {template_type}")
     elif template_type == 'lay_w_t2':
@@ -155,7 +165,7 @@ def main(args):
         print('scores_new.shape', scores_new.shape)
 
         # 6. Save arrays to .npy files
-        base = f"sample_{idx:06d}"
+        base = f"{args.task}_sample_{idx:06d}"
 
         hidden_file = out_dir / f"{base}_hidden_states.npy"
         attn_file = out_dir / f"{base}_attentions.npy"
@@ -209,6 +219,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args.output_dir = os.path.join(args.output_dir, args.model_name)
+    args.json_out_file = str(args.task) + "_" + args.json_out_file
     args.json_out_file = os.path.join(args.output_dir, args.json_out_file)
 
     print(f"\n\n ## args: {args} \n\n")
