@@ -32,6 +32,8 @@ def setup_model_and_tokenizer(model_name: str):
         torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
         device_map="auto",
     )
+    model.config.temperature = 1.0
+    model.config.top_p=1.0
     model.eval()
     return tokenizer, model
 
