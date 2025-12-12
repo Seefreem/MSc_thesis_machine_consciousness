@@ -65,6 +65,12 @@ def parse_args():
         default='sen_w_t1',
         help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
     ) 
+    parser.add_argument(
+        "--probe_type", 
+        type=str, 
+        default='normalized',
+        help='inf: un-normalized, for activation intervention; normalized: normalized, for information probing'
+    ) 
     return parser.parse_args()
 
 
@@ -361,7 +367,7 @@ def main():
         label_feature=args.label_feature,
         layer_indices=layer_indices,
     )
-    if args.C == 'np.inf':
+    if args.probe_type == 'inf':
         C = np.inf
         n_ite=15
         probes_dir = os.path.join(base_dir, "linear_probes_logreg_inf")

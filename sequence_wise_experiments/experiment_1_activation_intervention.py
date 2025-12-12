@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from datasets import Dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers.models.llama.modeling_llama import LlamaForCausalLM 
 from tqdm import tqdm
 from load_datasets import load_imdb_sms_for_transformer
 from myutilities import tuple_to_numpy_all_tokens
@@ -113,7 +114,11 @@ def register_hooks(args, model, layer_idx, alpha=1):
     decoder_layers = model.model.layers
     num_layers = len(decoder_layers)
     print(f"num_layers: {num_layers}")
-    decoder_layers[layer_idx].register_forward_hook(hook_fn)
+    if isinstance(model, LlamaForCausalLM):
+        # NOTE, that the number of layers is 1 less than the stored hidden representation layers
+        decoder_layers[layer_idx - 1].register_forward_hook(hook_fn) 
+    else:
+        raise ValueError(f'Not handled model type {type(model)}')
 
 def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
@@ -220,7 +225,9 @@ if __name__ == "__main__":
     parser.add_argument("--max_new_tokens", type=int, default=10)
     parser.add_argument("--probe_base_dir", type=str, default='_datasets/HPC')
     parser.add_argument("--max_n_samples", type=int, default=None) 
-    parser.add_argument("--alpha", type=float, default=1.0) 
+    parser.add_argument("--alpha", type=float, default=1.0, 
+        help='Alpha is a scalar. When alpha is 1.0, it removes the component on the direction of the probe; '
+             'when alpha is -1, it doubles the component on the direction of the probe. ') 
     parser.add_argument(
         "--layer_idx",
         type=int,

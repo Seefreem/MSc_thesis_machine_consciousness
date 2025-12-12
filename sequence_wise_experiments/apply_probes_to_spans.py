@@ -75,6 +75,17 @@ def parse_args():
         default='sen_w_t1',
         help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
         ) 
+    parser.add_argument(
+        "--probe_base_dir", 
+        type=str, 
+        default="_dayasets",
+        ) 
+    parser.add_argument(
+        "--probe_type", 
+        type=str, 
+        default='normalized',
+        help='inf: un-normalized, for activation intervention; normalized: normalized, for information probing'
+    ) 
     return parser.parse_args()
 
 
@@ -248,8 +259,12 @@ def main():
     # Load all the needed probes
     for l_idx in layer_indices:
         # Load probe for fold 0
+        if args.probe_type == 'normalized':
+            parent_dir = "linear_probes_logreg_normalized"
+        else:
+            parent_dir = "linear_probes_logreg_inf"
         probe_dir = os.path.join(
-            base_dir, "linear_probes_logreg_normalized", f"layer_{l_idx}"
+            args.probe_base_dir, args.model_name, args.task, parent_dir, f"layer_{l_idx}"
         )
         probe_path = os.path.join(
             probe_dir, f"logreg_layer{l_idx}_fold0.joblib"
