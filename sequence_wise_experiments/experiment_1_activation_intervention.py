@@ -165,7 +165,6 @@ def main(args):
                 **enc,
                 max_new_tokens=args.max_new_tokens,
                 return_dict_in_generate=True,
-                output_scores = True,
                 output_logits = True,
                 output_hidden_states=True,
                 # output_attentions = True,
@@ -182,21 +181,17 @@ def main(args):
 
         # Final logits and probabilities for each *new* token
         logits_new = torch.cat(gen_out['logits'], 0).cpu().float().numpy().astype(np.float16)  #  x [new_tokens, vocab_size]
-        scores_new = torch.cat(gen_out['scores'], 0).cpu().float().numpy().astype(np.float16)  # x [new_tokens, vocab_size]
 
         print('logits_new.shape', logits_new.shape)
-        print('scores_new.shape', scores_new.shape)
 
         # 6. Save arrays to .npy files
         base = f"{args.task}_sample_{idx:06d}"
 
         hidden_file = out_dir / f"{base}_hidden_states.npy"
         logits_file = out_dir / f"{base}_logits_new.npy"
-        probs_file = out_dir / f"{base}_scores_new.npy"
 
         np.save(hidden_file, hidden_states_np)
         np.save(logits_file, logits_new)
-        np.save(probs_file, scores_new)
 
         # 7. Add file names + generated text into original JSON object
         new_obj = dict(orig_example)
@@ -206,7 +201,6 @@ def main(args):
                 "generated_text": generated_text,
                 "hidden_states_file": str(hidden_file),
                 "logits_new_file": str(logits_file),
-                "scores_new_file": str(probs_file),
             }
         )
         augmented_data.append(new_obj)
@@ -233,7 +227,7 @@ if __name__ == "__main__":
         type=int,
         default=None,
         required=True,
-        help='Layer index (e.g. "0", "5")',
+        help='The layer to modify (e.g. "0", "5")',
     )
     parser.add_argument(
         "--task", 
@@ -243,7 +237,8 @@ if __name__ == "__main__":
         ) 
 
     args = parser.parse_args()
-    args.output_dir = os.path.join(args.output_dir, 'activation_inter', args.model_name, args.task)
+    args.output_dir = os.path.join(args.output_dir, 'activation_inter', 
+        args.model_name, args.task, str(args.layer_idx))
     args.json_out_file = str(args.task) + "_" + args.json_out_file
     args.json_out_file = os.path.join(args.output_dir, args.json_out_file)
 

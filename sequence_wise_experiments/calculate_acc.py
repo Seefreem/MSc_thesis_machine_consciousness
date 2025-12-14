@@ -49,7 +49,12 @@ def get_label_token_mapping(tokenizer, label_feature: str):
 
 def main(args):
     args.target_file = str(args.task) + "_" + args.target_file
-    input_path = os.path.join(args.data_dir, args.model_name, args.task, args.target_file)
+    if args.intervened_layer_idx != None:
+        input_path = os.path.join(args.data_dir, args.model_name, 
+            args.task, str(args.intervened_layer_idx), args.target_file)
+    else:
+        input_path = os.path.join(args.data_dir, args.model_name, 
+            args.task, args.target_file)
     print(f"Loading data from: {input_path}")
 
     # Load JSON file (assumed to be a list of dicts)
@@ -158,5 +163,11 @@ if __name__ == "__main__":
         default='sen_w_t1',
         help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
         ) 
+    parser.add_argument(
+        "--intervened_layer_idx",
+        type=int,
+        default=None,
+        help='The layer that is modified (e.g. "0", "5")',
+    )
     args = parser.parse_args()
     main(args)

@@ -86,6 +86,12 @@ def parse_args():
         default='normalized',
         help='inf: un-normalized, for activation intervention; normalized: normalized, for information probing'
     ) 
+    parser.add_argument(
+        "--intervened_layer_idx",
+        type=int,
+        default=None,
+        help='The layer that is modified (e.g. "0", "5")',
+    )
     return parser.parse_args()
 
 
@@ -204,7 +210,13 @@ def main():
     args = parse_args()
     set_seed(args.seed)
 
-    base_dir = os.path.join(args.data_dir, args.model_name, args.task)
+    # base_dir = os.path.join(args.data_dir, args.model_name, args.task)
+    if args.intervened_layer_idx != None:
+        base_dir = os.path.join(args.data_dir, args.model_name, 
+            args.task, str(args.intervened_layer_idx))
+    else:
+        base_dir = os.path.join(args.data_dir, args.model_name, 
+            args.task)
     target_file = str(args.task) + "_" + args.target_file
     json_path = os.path.join(base_dir, target_file)
 
@@ -256,13 +268,17 @@ def main():
 
     layer_results = {}
     all_probes = {}
+    output_dub_dir = ''
+    parent_dir = ''
+    if args.probe_type == 'normalized':
+        parent_dir = "linear_probes_logreg_normalized"
+        output_dub_dir = "span_probe_results_logreg_normalized"
+    else:
+        parent_dir = "linear_probes_logreg_inf"
+        output_dub_dir = "span_probe_results_logreg_inf"
     # Load all the needed probes
     for l_idx in layer_indices:
         # Load probe for fold 0
-        if args.probe_type == 'normalized':
-            parent_dir = "linear_probes_logreg_normalized"
-        else:
-            parent_dir = "linear_probes_logreg_inf"
         probe_dir = os.path.join(
             args.probe_base_dir, args.model_name, args.task, parent_dir, f"layer_{l_idx}"
         )
@@ -341,7 +357,7 @@ def main():
     for li, lay_idx in enumerate(layer_indices):
         # Save per-layer results
         layer_out_dir = os.path.join(
-            base_dir, "span_probe_results_logreg", f"layer_{lay_idx}"
+            base_dir, output_dub_dir, f"layer_{lay_idx}"
         )
         os.makedirs(layer_out_dir, exist_ok=True)
         npz_path = os.path.join(layer_out_dir, f"span_results_layer{lay_idx}.npz")
@@ -380,7 +396,7 @@ def main():
             mag_matrix[li, s_idx] = mag
 
     # Save matrices
-    results_dir = os.path.join(base_dir, "span_probe_results_logreg")
+    results_dir = os.path.join(base_dir, output_dub_dir)
     os.makedirs(results_dir, exist_ok=True)
     np.savez(
         os.path.join(results_dir, "span_accuracy_and_magnitude_all_layers.npz"),
