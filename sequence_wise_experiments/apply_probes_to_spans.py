@@ -13,12 +13,6 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.exceptions import NotFittedError
 
 
-PROMPT_TEMPLATE = (
-    "context 1: {c1}; \ncontext 2: {c2}.\n "
-    "Task: sentiment analysis of context 1, positive or negative.\n"
-    "Sentiment of context 1 is _"
-)
-
 SPAN_LABELS = [
     "context1_prefix",  # "context 1: "
     "context1",         # "{c1}; \n"
@@ -78,7 +72,7 @@ def parse_args():
     parser.add_argument(
         "--probe_base_dir", 
         type=str, 
-        default="_dayasets",
+        default="_datasets",
         ) 
     parser.add_argument(
         "--probe_type", 
@@ -111,95 +105,57 @@ def infer_dims(first_hidden_path: str):
     return n_tokens, n_layers, feat_dim
 
 
-def build_span_char_ranges(sample): # What is this function for?
-    """
-    Build character-level span ranges for the wrapped_prompt, as:
-    0: "context 1: "
-    1: "{c1}; \n"
-    2: "context 2: "
-    3: "{c2}.\n "
-    4: "Task: sentiment analysis of context 1, positive or negative.\nSentiment of context 1 is "
-    5: "_"
-    Returns:
-        span_ranges: list of (start_char, end_char) for each span
-        prompt_text: the reconstructed prompt (should equal sample["wrapped_prompt"])
-    """
-    c1 = sample["context_1"]
-    c2 = sample["context_2"]
-
-    s0 = "context 1: "
-    s1 = c1 + "; \n"
-    s2 = "context 2: "
-    s3 = c2 + ".\n "
-    s4 = (
-        "Task: sentiment analysis of context 1, positive or negative.\n"
-        "Sentiment of context 1 is "
-    )
-    s5 = "_"
-
-    pieces = [s0, s1, s2, s3, s4, s5]
-    prompt_text = "".join(pieces)
-
-    # Build cumulative character ranges
-    span_ranges = []
-    cur = 0
-    for seg in pieces:
-        start = cur
-        end = cur + len(seg)
-        span_ranges.append((start, end))
-        cur = end
-    print('span_ranges', span_ranges)
-    return span_ranges, prompt_text
-
 def compute_token_spans_for_sample(sample, tokenizer, task):
     wrapped_prompt = sample["wrapped_prompt"]
+    s0 = "context 1:"
+    s1 = "; \n"
+    s2 = "context 2:"
+    s3 = ".\n "
+    s5 = "_"
     if task == 'sen_w_t1':
-        s0 = "context 1:"
-        s1 = "; \n"
-        s2 = "context 2:"
-        s3 = ".\n "
         s4 = (
             " Task: sentiment analysis of context 1, positive or negative.\nSentiment of context 1 is"
+        )    
+    elif task == 'sen_w_t2':
+        s4 = (
+            " Task: classify SMS incontext 2 as spam or ham (not a spam).\nContext 2 is classified as"
         )
-        s5 = "_"
-        
-        token_span_ranges = {}
-        token_ids_wp = tokenizer(wrapped_prompt, padding=False)['input_ids']
-        token_ids_s0 = tokenizer(s0, add_special_tokens=False)['input_ids']
-        token_ids_s2 = tokenizer(s2, add_special_tokens=False)['input_ids']
-        token_ids_s4 = tokenizer(s4, add_special_tokens=False)['input_ids']
-        # print(token_ids_wp.shap, token_ids_wp)
-        # print(token_ids_s0.shape, token_ids_s0)
-        
-        pieces = [token_ids_s0, token_ids_s2, token_ids_s4]
-        labels = [SPAN_LABELS[0], SPAN_LABELS[2], SPAN_LABELS[4]]
-        for (span, label) in zip(pieces, labels):
-            len_span = len(span)
-            for i in range(len(token_ids_wp) - len_span):
-                # print(span == token_ids_wp[i:i + len_span])
-                # print((span == token_ids_wp[i:i + len_span]))
-                if (span == token_ids_wp[i:i + len_span]):
-                    # print(f'Found the span of {label}')
-                    start_s0 = i
-                    end_s0 = i + len_span
-                    token_span_ranges[label] = [start_s0, end_s0]
-                    break
-        # check 
-        if not (SPAN_LABELS[0] in token_span_ranges.keys() and 
-            SPAN_LABELS[2] in token_span_ranges.keys() and 
-            SPAN_LABELS[4] in token_span_ranges.keys()):
-            ValueError(f'Key words not found of the sample {wrap_example}')
-
-        # print(token_span_ranges)    
-        token_span_ranges[SPAN_LABELS[1]] = [token_span_ranges[SPAN_LABELS[0]][1], token_span_ranges[SPAN_LABELS[2]][0]]
-        token_span_ranges[SPAN_LABELS[3]] = [token_span_ranges[SPAN_LABELS[2]][1], token_span_ranges[SPAN_LABELS[4]][0]]
-        token_span_ranges[SPAN_LABELS[5]] = [len(token_ids_wp) - 1, len(token_ids_wp)]
-        # print(token_span_ranges)
-        return token_span_ranges, token_ids_wp
-
-        
     else:
-        ValueError(f"Unhandled task: {task}")
+        raise ValueError(f"Unhandled task: {task}")
+        
+    token_span_ranges = {}
+    token_ids_wp = tokenizer(wrapped_prompt, padding=False)['input_ids']
+    token_ids_s0 = tokenizer(s0, add_special_tokens=False)['input_ids']
+    token_ids_s2 = tokenizer(s2, add_special_tokens=False)['input_ids']
+    token_ids_s4 = tokenizer(s4, add_special_tokens=False)['input_ids']
+    # print(token_ids_wp.shap, token_ids_wp)
+    # print(token_ids_s0.shape, token_ids_s0)
+    
+    pieces = [token_ids_s0, token_ids_s2, token_ids_s4]
+    labels = [SPAN_LABELS[0], SPAN_LABELS[2], SPAN_LABELS[4]]
+    for (span, label) in zip(pieces, labels):
+        len_span = len(span)
+        for i in range(len(token_ids_wp) - len_span):
+            # print(span == token_ids_wp[i:i + len_span])
+            # print((span == token_ids_wp[i:i + len_span]))
+            if (span == token_ids_wp[i:i + len_span]):
+                # print(f'Found the span of {label}')
+                start_s0 = i
+                end_s0 = i + len_span
+                token_span_ranges[label] = [start_s0, end_s0]
+                break
+    # check 
+    if not (SPAN_LABELS[0] in token_span_ranges.keys() and 
+        SPAN_LABELS[2] in token_span_ranges.keys() and 
+        SPAN_LABELS[4] in token_span_ranges.keys()):
+        raise ValueError(f'Key words not found of the sample {wrap_example}')
+
+    # print(token_span_ranges)    
+    token_span_ranges[SPAN_LABELS[1]] = [token_span_ranges[SPAN_LABELS[0]][1], token_span_ranges[SPAN_LABELS[2]][0]]
+    token_span_ranges[SPAN_LABELS[3]] = [token_span_ranges[SPAN_LABELS[2]][1], token_span_ranges[SPAN_LABELS[4]][0]]
+    token_span_ranges[SPAN_LABELS[5]] = [len(token_ids_wp) - 1, len(token_ids_wp)]
+    # print(token_span_ranges)
+    return token_span_ranges, token_ids_wp
 
 def save_updated_json(data, out_path):
     with open(out_path, "w", encoding="utf-8") as f:
