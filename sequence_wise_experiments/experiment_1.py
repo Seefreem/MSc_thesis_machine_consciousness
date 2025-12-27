@@ -139,23 +139,23 @@ def main(args):
         print('attention_scores_np.shape', attention_scores_np.shape)
         # MLP activations (per layer, from hooks)
         # mlp_acts_np = tensor_list_to_numpy(mlp_acts)  # [num_layers, seq_len, hidden_dim]
-        mlp_acts_np = layer_token_tuple_to_numpy(mlp_acts)
-        print('mlp_acts_np.shape', mlp_acts_np.shape)
+        # mlp_acts_np = layer_token_tuple_to_numpy(mlp_acts)
+        # print('mlp_acts_np.shape', mlp_acts_np.shape)
         # print('mlp_acts:', len(mlp_acts), len(mlp_acts[0]))
         # for i2 in mlp_acts[0]:
         #     print(i2.shape)
         
         # # Attention block outputs (combined multi-head output after o_proj)
         # attn_block_outs_np = tensor_list_to_numpy(attn_block_outs)  # [num_layers, seq_len, hidden_dim]
-        attn_block_outs_np = layer_token_tuple_to_numpy(attn_block_outs)
-        print('attn_block_outs_np.shape', attn_block_outs_np.shape)
+        # attn_block_outs_np = layer_token_tuple_to_numpy(attn_block_outs)
+        # print('attn_block_outs_np.shape', attn_block_outs_np.shape)
         # print('attn_block_outs', len(attn_block_outs), len(attn_block_outs[0]))
         # for i2 in attn_block_outs[0]:
         #     print(i2.shape)
 
         # Final logits and probabilities for each *new* token
         logits_new = torch.cat(gen_out['logits'], 0).cpu().float().numpy().astype(np.float16)  #  x [new_tokens, vocab_size]
-        scores_new = torch.cat(gen_out['scores'], 0).cpu().float().numpy().astype(np.float16)  # x [new_tokens, vocab_size]
+        # scores_new = torch.cat(gen_out['scores'], 0).cpu().float().numpy().astype(np.float16)  # x [new_tokens, vocab_size]
         # print('logits:\n',gen_out['logits'])
         # print('logits_new:\n',logits_new)
         # print('scores:\n',gen_out['scores'])
@@ -169,17 +169,17 @@ def main(args):
 
         hidden_file = out_dir / f"{base}_hidden_states.npy"
         attn_file = out_dir / f"{base}_attentions.npy"
-        mlp_file = out_dir / f"{base}_mlp_activations.npy"
-        attn_out_file = out_dir / f"{base}_attn_block_outputs.npy"
+        # mlp_file = out_dir / f"{base}_mlp_activations.npy"
+        # attn_out_file = out_dir / f"{base}_attn_block_outputs.npy"
         logits_file = out_dir / f"{base}_logits_new.npy"
-        probs_file = out_dir / f"{base}_scores_new.npy"
+        # probs_file = out_dir / f"{base}_scores_new.npy"
 
         np.save(hidden_file, hidden_states_np)
         np.save(attn_file, attention_scores_np)
-        np.save(mlp_file, mlp_acts_np)
-        np.save(attn_out_file, attn_block_outs_np)
+        # np.save(mlp_file, mlp_acts_np)
+        # np.save(attn_out_file, attn_block_outs_np)
         np.save(logits_file, logits_new)
-        np.save(probs_file, scores_new)
+        # np.save(probs_file, scores_new)
 
         # 7. Add file names + generated text into original JSON object
         new_obj = dict(orig_example)
@@ -189,10 +189,10 @@ def main(args):
                 "generated_text": generated_text,
                 "hidden_states_file": str(hidden_file),
                 "attentions_file": str(attn_file),
-                "mlp_activations_file": str(mlp_file),
-                "attn_block_outputs_file": str(attn_out_file),
+                # "mlp_activations_file": str(mlp_file),
+                # "attn_block_outputs_file": str(attn_out_file),
                 "logits_new_file": str(logits_file),
-                "scores_new_file": str(probs_file),
+                # "scores_new_file": str(probs_file),
             }
         )
         augmented_data.append(new_obj)
