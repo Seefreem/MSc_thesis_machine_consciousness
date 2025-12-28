@@ -148,7 +148,7 @@ def compute_token_spans_for_sample(sample, tokenizer, task):
     if not (SPAN_LABELS[0] in token_span_ranges.keys() and 
         SPAN_LABELS[2] in token_span_ranges.keys() and 
         SPAN_LABELS[4] in token_span_ranges.keys()):
-        raise ValueError(f'Key words not found of the sample {wrap_example}')
+        raise ValueError(f'Key words not found of the sample {wrapped_prompt}')
 
     # print(token_span_ranges)    
     token_span_ranges[SPAN_LABELS[1]] = [token_span_ranges[SPAN_LABELS[0]][1], token_span_ranges[SPAN_LABELS[2]][0]]

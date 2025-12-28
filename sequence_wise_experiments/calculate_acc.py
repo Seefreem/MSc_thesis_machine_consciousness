@@ -40,7 +40,7 @@ def get_label_token_mapping(tokenizer, label_feature: str):
         token_id_to_label[tokenizer('negative', add_special_tokens=False).input_ids[0]] = 0
     elif label_feature == 'label_context_2': # Spam detection
         token_id_to_label[tokenizer('spam', add_special_tokens=False).input_ids[0]] = 1
-        token_id_to_label[tokenizer('legitimate', add_special_tokens=False).input_ids[0]] = 0
+        token_id_to_label[tokenizer('ham', add_special_tokens=False).input_ids[0]] = 0
     else:
         raise ValueError(f"Unknown label feature: {label_feature}")
 
@@ -69,6 +69,7 @@ def main(args):
 
     # Build mapping from label token IDs -> numerical labels
     token_id_to_label = get_label_token_mapping(tokenizer, args.label_feature)
+    print(token_id_to_label)
 
     # Iterate data, map first token of generated_text to a label, compute accuracy
     correct = 0
@@ -109,7 +110,7 @@ def main(args):
 
         # Debug print for first few samples
         if idx < debug_print_limit:
-            print(f"--- Sample {idx} ---")
+            print(f"--- Sample: {item['context_2']} ---")
             print(f"  {args.label_feature} (true): {true_label}")
             print(f"  generated_text: {gen_text}")
             print(f"  token_ids: {ids}")
@@ -155,12 +156,14 @@ if __name__ == "__main__":
         "--label_feature",
         type=str,
         default='label_context_1',
+        required=True,
         help="Name of the numerical label field to use (label_context_1 or label_context_2)",
     )
     parser.add_argument(
         "--task", 
         type=str, 
         default='sen_w_t1',
+        required=True,
         help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
         ) 
     parser.add_argument(

@@ -37,12 +37,14 @@ def parse_args():
         "--label_feature",
         type=str,
         default='label_context_1',
+        required=True,
         help="Name of the numerical label field to use (label_context_1 or label_context_2)",
     )
     parser.add_argument(
         "--task", 
         type=str, 
         default='sen_w_t1',
+        required=True,
         help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
         ) 
     parser.add_argument(
@@ -60,15 +62,15 @@ def get_label_token_ids(tokenizer, label_feature: str):
 
         numeric_label (int) -> token_id (int)
 
-    - For label_feature == 'label_context_1': 'spam' -> 1, 'legitimate' -> 0
+    - For label_feature == 'label_context_1': 'spam' -> 1, 'ham' -> 0
     - Otherwise: 'positive' -> 1, 'negative' -> 0
     """
     if label_feature == "label_context_1":
         label_words = ("positive", "negative", "POSITIVE", "NEGATIVE")
         word_to_numeric = {"positive": 1, "negative": 0, "POSITIVE":1, "NEGATIVE": 0}
     else:
-        label_words = ("spam", "legitimate", "SPAM", "LEGITIMATE")
-        word_to_numeric = {"spam": 1, "legitimate": 0, "SPAM":1, "LEGITIMATE":0}
+        label_words = ("spam", "ham", "SPAM", "HAM")
+        word_to_numeric = {"spam": 1, "ham": 0, "SPAM":1, "HAM":0}
 
     numeric_to_token_id = defaultdict(set)
 
