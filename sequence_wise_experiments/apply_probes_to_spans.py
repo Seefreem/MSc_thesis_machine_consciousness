@@ -105,7 +105,7 @@ def infer_dims(first_hidden_path: str):
     return n_tokens, n_layers, feat_dim
 
 
-def compute_token_spans_for_sample(sample, tokenizer, task):
+def compute_token_spans_for_sample(model, sample, tokenizer, task):
     wrapped_prompt = sample["wrapped_prompt"]
     s0 = "context 1:"
     s1 = "; \n"
@@ -113,18 +113,29 @@ def compute_token_spans_for_sample(sample, tokenizer, task):
     s3 = ".\n "
     s5 = "_"
     if task == 'sen_w_t1':
-        s4 = (
-            " Task: sentiment analysis of context 1, positive or negative.\nSentiment of context 1 is"
-        )    
+        if 'gemma' in model:
+            s4 = (
+                " Task: sentiment analysis of context 1; the only labels: positive or negative.\nSentiment of context 1 is" # ['▁**']
+            )    
+        elif 'llama' in model:
+            s4 = (
+                " Task: sentiment analysis of context 1, positive or negative.\nSentiment of context 1 is"
+            )    
     elif task == 'sen_w_t2':
-        s4 = (
-            " Task: classify SMS incontext 2 as spam or ham (not a spam).\nContext 2 is classified as"
-        )
+        if 'gemma' in model:
+            s4 = (
+                " Task: classify SMS in context 2 as spam or ham (not a spam).\nContext 2 is classified as"
+            )    
+        elif 'llama' in model:
+            s4 = (
+                " Task: classify SMS incontext 2 as spam or ham (not a spam).\nContext 2 is classified as"
+            )
     else:
         raise ValueError(f"Unhandled task: {task}")
         
     token_span_ranges = {}
     token_ids_wp = tokenizer(wrapped_prompt, padding=False)['input_ids']
+    print('tokens_wp:', tokenizer.convert_ids_to_tokens(token_ids_wp))
     token_ids_s0 = tokenizer(s0, add_special_tokens=False)['input_ids']
     token_ids_s2 = tokenizer(s2, add_special_tokens=False)['input_ids']
     token_ids_s4 = tokenizer(s4, add_special_tokens=False)['input_ids']
@@ -201,7 +212,7 @@ def main():
     print("Computing token spans per sample...")
     all_token_spans = []
     for i, sample in enumerate(data):
-        token_span_ranges, input_ids = compute_token_spans_for_sample(sample, tokenizer, args.task)
+        token_span_ranges, input_ids = compute_token_spans_for_sample(args.model_name, sample, tokenizer, args.task)
         sample["token_spans"] = token_span_ranges
         # Optionally also store tokenized length
         sample["prompt_num_tokens"] = len(input_ids)

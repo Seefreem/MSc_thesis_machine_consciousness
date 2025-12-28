@@ -16,30 +16,48 @@ from myutilities import layer_token_tuple_to_numpy
 from myutilities import register_hooks
 from myutilities import setup_model_and_tokenizer
 
-def wrap_example(context_1: str, context_2: str, template_type: str) -> str:
+def wrap_example(model, context_1: str, context_2: str, template_type: str) -> str:
     """Create the prompt string for one example."""
     PROMPT_TEMPLATE = ""
     if template_type == 'sen_w_t1':
-        PROMPT_TEMPLATE = (
-            "context 1: {c1}; \ncontext 2: {c2}.\n "
-            "Task: sentiment analysis of context 1, positive or negative.\n"
-            "Sentiment of context 1 is _"
-            # "Among the labels of positive and negative, the sentiment label of context 1 is: "
-        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = (
+                "context 1: {c1}; \ncontext 2: {c2}.\n "
+                "Task: sentiment analysis of context 1; the only labels: positive or negative.\n"
+                "Sentiment of context 1 is **"
+                # "Among the labels of positive and negative, the sentiment label of context 1 is: "
+            )
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = (
+                "context 1: {c1}; \ncontext 2: {c2}.\n "
+                "Task: sentiment analysis of context 1, positive or negative.\n"
+                "Sentiment of context 1 is _"
+                # "Among the labels of positive and negative, the sentiment label of context 1 is: "
+            )
         PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
     elif template_type == 'sen_w_t2':
-        PROMPT_TEMPLATE = (
-            "context 1: {c1}; \ncontext 2: {c2}.\n "
-            "Task: classify SMS incontext 2 as spam or ham (not a spam).\n"
-            "Context 2 is classified as _"
-        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = (
+                "context 1: {c1}; \ncontext 2: {c2}.\n "
+                "Task: classify SMS in context 2 as spam or ham (not a spam).\n"
+                "Context 2 is classified as **"
+            )
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = (
+                "context 1: {c1}; \ncontext 2: {c2}.\n "
+                "Task: classify SMS incontext 2 as spam or ham (not a spam).\n"
+                "Context 2 is classified as _"
+            )
         PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
     elif template_type == 'sen_w_b':
-        PROMPT_TEMPLATE = (
-            "context 1: {c1}; \ncontext 2: {c2}.\n _"
-            # "Task: classify SMS incontext 2 as spam or ham (not a spam).\n"
-            # "Context 2 is classified as _"
-        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = (
+                "context 1: {c1}; \ncontext 2: {c2}.\n **"
+            )
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = (
+                "context 1: {c1}; \ncontext 2: {c2}.\n _"
+            )
         PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
     elif template_type == 'lay_w_t1':
         raise ValueError(f"Unhandled template type {template_type}")
@@ -79,7 +97,7 @@ def main(args):
         orig_example = original_data[idx]
 
         # 2. Wrap data into prompt
-        prompt = wrap_example(example["context_1"], example["context_2"], args.task)
+        prompt = wrap_example(args.model_name, example["context_1"], example["context_2"], args.task)
         # print('prompt:\n', type(prompt), prompt)
 
         # Tokenize
