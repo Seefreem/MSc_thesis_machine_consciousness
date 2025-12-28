@@ -162,7 +162,7 @@ def main(args):
         # print('scores_new:\n',scores_new)
         # logits_new_np = logits_new.numpy()
         print('logits_new.shape', logits_new.shape)
-        print('scores_new.shape', scores_new.shape)
+        # print('scores_new.shape', scores_new.shape)
 
         # 6. Save arrays to .npy files
         base = f"{args.task}_sample_{idx:06d}"
