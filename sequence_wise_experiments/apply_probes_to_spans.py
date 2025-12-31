@@ -135,7 +135,6 @@ def compute_token_spans_for_sample(model, sample, tokenizer, task):
         
     token_span_ranges = {}
     token_ids_wp = tokenizer(wrapped_prompt, padding=False)['input_ids']
-    print('tokens_wp:', tokenizer.convert_ids_to_tokens(token_ids_wp))
     token_ids_s0 = tokenizer(s0, add_special_tokens=False)['input_ids']
     token_ids_s2 = tokenizer(s2, add_special_tokens=False)['input_ids']
     token_ids_s4 = tokenizer(s4, add_special_tokens=False)['input_ids']
