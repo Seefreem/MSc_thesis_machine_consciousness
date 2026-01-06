@@ -12,6 +12,7 @@ from sklearn.metrics import log_loss
 from sklearn.metrics.pairwise import cosine_similarity
 import joblib
 
+from myutilities import set_seed, load_metadata, infer_dims
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -72,23 +73,6 @@ def parse_args():
         help='inf: un-normalized, for activation intervention; normalized: normalized, for information probing'
     ) 
     return parser.parse_args()
-
-
-def set_seed(seed: int):
-    np.random.seed(seed)
-
-
-def load_metadata(json_path: str):
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data
-
-
-def infer_dims(first_hidden_path: str):
-    hs = np.load(first_hidden_path, mmap_mode="r")
-    n_tokens, n_layers, feat_dim = hs.shape
-    return n_tokens, n_layers, feat_dim
-
 
 def extract_features(
     data,

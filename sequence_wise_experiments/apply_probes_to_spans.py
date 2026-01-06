@@ -12,16 +12,15 @@ from transformers import AutoTokenizer
 from sklearn.utils.validation import check_is_fitted
 from sklearn.exceptions import NotFittedError
 
-
-SPAN_LABELS = [
-    "context1_prefix",  # "context 1: "
-    "context1",         # "{c1}; \n"
-    "context2_prefix",  # "context 2: "
-    "context2",         # "{c2}.\n "
-    "task",             # "Task: sentiment analysis ... Sentiment of context 1 is "
-    "blank",            # "_"
-]
-
+from myutilities import set_seed, load_metadata, infer_dims
+from myutilities import compute_token_spans_for_sample
+from myutilities import save_updated_json
+from myutilities import load_probes
+from myutilities import compute_avg_acc_mag
+from myutilities import save_matrices
+from myutilities import plot_acc 
+from myutilities import plot_magnitude
+from myutilities import SPAN_LABELS
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -88,90 +87,6 @@ def parse_args():
     )
     return parser.parse_args()
 
-
-def set_seed(seed: int):
-    np.random.seed(seed)
-
-
-def load_metadata(json_path: str):
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data
-
-
-def infer_dims(first_hidden_path: str):
-    hs = np.load(first_hidden_path, mmap_mode="r")
-    n_tokens, n_layers, feat_dim = hs.shape
-    return n_tokens, n_layers, feat_dim
-
-
-def compute_token_spans_for_sample(model, sample, tokenizer, task):
-    wrapped_prompt = sample["wrapped_prompt"]
-    s0 = "context 1:"
-    s1 = "; \n"
-    s2 = "context 2:"
-    s3 = ".\n "
-    s5 = "_"
-    if task == 'sen_w_t1':
-        if 'gemma' in model:
-            s4 = (
-                " Task: sentiment analysis of context 1; the only labels: positive or negative.\nSentiment of context 1 is" # ['▁**']
-            )    
-        elif 'llama' in model:
-            s4 = (
-                " Task: sentiment analysis of context 1, positive or negative.\nSentiment of context 1 is"
-            )    
-    elif task == 'sen_w_t2':
-        if 'gemma' in model:
-            s4 = (
-                " Task: classify SMS in context 2 as spam or ham (not a spam).\nContext 2 is classified as"
-            )    
-        elif 'llama' in model:
-            s4 = (
-                " Task: classify SMS incontext 2 as spam or ham (not a spam).\nContext 2 is classified as"
-            )
-    else:
-        raise ValueError(f"Unhandled task: {task}")
-        
-    token_span_ranges = {}
-    token_ids_wp = tokenizer(wrapped_prompt, padding=False)['input_ids']
-    token_ids_s0 = tokenizer(s0, add_special_tokens=False)['input_ids']
-    token_ids_s2 = tokenizer(s2, add_special_tokens=False)['input_ids']
-    token_ids_s4 = tokenizer(s4, add_special_tokens=False)['input_ids']
-    # print(token_ids_wp.shap, token_ids_wp)
-    # print(token_ids_s0.shape, token_ids_s0)
-    
-    pieces = [token_ids_s0, token_ids_s2, token_ids_s4]
-    labels = [SPAN_LABELS[0], SPAN_LABELS[2], SPAN_LABELS[4]]
-    for (span, label) in zip(pieces, labels):
-        len_span = len(span)
-        for i in range(len(token_ids_wp) - len_span):
-            # print(span == token_ids_wp[i:i + len_span])
-            # print((span == token_ids_wp[i:i + len_span]))
-            if (span == token_ids_wp[i:i + len_span]):
-                # print(f'Found the span of {label}')
-                start_s0 = i
-                end_s0 = i + len_span
-                token_span_ranges[label] = [start_s0, end_s0]
-                break
-    # check 
-    if not (SPAN_LABELS[0] in token_span_ranges.keys() and 
-        SPAN_LABELS[2] in token_span_ranges.keys() and 
-        SPAN_LABELS[4] in token_span_ranges.keys()):
-        raise ValueError(f'Key words not found of the sample {wrapped_prompt}')
-
-    # print(token_span_ranges)    
-    token_span_ranges[SPAN_LABELS[1]] = [token_span_ranges[SPAN_LABELS[0]][1], token_span_ranges[SPAN_LABELS[2]][0]]
-    token_span_ranges[SPAN_LABELS[3]] = [token_span_ranges[SPAN_LABELS[2]][1], token_span_ranges[SPAN_LABELS[4]][0]]
-    token_span_ranges[SPAN_LABELS[5]] = [len(token_ids_wp) - 1, len(token_ids_wp)]
-    # print(token_span_ranges)
-    return token_span_ranges, token_ids_wp
-
-def save_updated_json(data, out_path):
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
 def main():
     args = parse_args()
     set_seed(args.seed)
@@ -224,7 +139,6 @@ def main():
         base_dir,
         args.target_file.replace(".json", "_with_spans.json"),
     )
-    print(f"Saving updated JSON with token spans to {json_with_spans_path}")
     save_updated_json(data, json_with_spans_path)
 
     # ---- Step 6 & 7: average pooling per span, apply probes ----
@@ -243,18 +157,8 @@ def main():
         parent_dir = "linear_probes_logreg_inf"
         output_dub_dir = "span_probe_results_logreg_inf"
     # Load all the needed probes
+    all_probes = load_probes(args, layer_indices, parent_dir, args.task)
     for l_idx in layer_indices:
-        # Load probe for fold 0
-        probe_dir = os.path.join(
-            args.probe_base_dir, args.model_name, args.task, parent_dir, f"layer_{l_idx}"
-        )
-        probe_path = os.path.join(
-            probe_dir, f"logreg_layer{l_idx}_fold0.joblib"
-        )
-        print(f"  Loading probe from {probe_path}")
-        # bundle = joblib.load(probe_path)
-        all_probes[l_idx] = joblib.load(probe_path)
-        
         layer_results[l_idx] = {
             "y_true": np.zeros((n_samples,), dtype=np.int32),
             "y_pred": np.zeros((n_spans, n_samples), dtype=np.int32),
@@ -337,118 +241,28 @@ def main():
         )
 
     # ---- Step 8: compute accuracy + average projection magnitude across samples ----
-    print("Computing accuracy and average projection magnitude matrices...")
 
     n_layers_used = len(layer_indices)
-    acc_matrix = np.zeros((n_layers_used, n_spans), dtype=np.float32)
-    mag_matrix = np.zeros((n_layers_used, n_spans), dtype=np.float32)
-
-    for li, layer_idx in enumerate(layer_indices):
-        res = layer_results[layer_idx]
-        y_true = res["y_true"]            # [n_samples]
-        y_pred = res["y_pred"]            # [n_spans, n_samples]
-        proj = res["proj"]                # [n_spans, n_samples]
-
-        for s_idx in range(n_spans):
-            preds = y_pred[s_idx]
-            # Accuracy for this span & layer
-            acc = accuracy_score(y_true, preds)
-            acc_matrix[li, s_idx] = acc
-
-            # Average magnitude of projection (abs) across samples
-            proj_vals = proj[s_idx]
-            # Ignore NaNs if any
-            mag = np.nanmean(np.abs(proj_vals))
-            mag_matrix[li, s_idx] = mag
+    acc_matrix, mag_matrix = compute_avg_acc_mag(
+                n_layers_used, n_spans, layer_indices, layer_results)
 
     # Save matrices
+    x_labels = SPAN_LABELS
     results_dir = os.path.join(base_dir, output_dub_dir)
-    os.makedirs(results_dir, exist_ok=True)
-    np.savez(
-        os.path.join(results_dir, "span_accuracy_and_magnitude_all_layers.npz"),
-        layer_indices=np.array(layer_indices),
-        span_labels=np.array(SPAN_LABELS),
-        acc_matrix=acc_matrix,
-        mag_matrix=mag_matrix,
-    )
+    save_matrices(results_dir, layer_indices, acc_matrix, mag_matrix, x_labels)
 
     # ---- Step 9: plot accuracy heatmap [layers × spans] ----
-    print("Plotting accuracy heatmap...")
-    fig_acc = plt.figure()
-    im = plt.imshow(acc_matrix, vmin=0.0, vmax=1.0, aspect="auto")
-    plt.colorbar(im, label="Accuracy")
-
     x_ticks = np.arange(n_spans)
     y_ticks = np.arange(n_layers_used)
-    plt.xticks(x_ticks, SPAN_LABELS, rotation=90, ha="right", fontsize = 7)
-    plt.yticks(y_ticks, layer_indices, fontsize = 7)
-
-    # Add accuracy values in each cell
-    for i in range(n_layers_used):
-        for j in range(n_spans):
-            val = acc_matrix[i, j]
-            # text_color = "white" if val > 0.5 else "black"
-            text_color = "black"
-            plt.text(
-                j,
-                i,
-                f"{val:.2f}",
-                ha="center",
-                va="center",
-                fontsize=7,
-                color=text_color,
-            )
-
-    plt.xlabel("Token span")
-    plt.ylabel("Layer index")
-    plt.title("Average accuracy per span per layer")
-    plt.tight_layout()
-
-    acc_fig_path = os.path.join(results_dir, "span_accuracy_heatmap.png")
-    plt.savefig(acc_fig_path, dpi=200)
-    plt.close(fig_acc)
+    plot_acc(acc_matrix, x_ticks, y_ticks, 
+            layer_indices, n_layers_used, n_spans, 
+            results_dir, x_labels)
 
     # ---- Step 10: plot projection magnitude heatmap [layers × spans] ----
-    print("Plotting projection magnitude heatmap...")
-    fig_mag = plt.figure()
-    # Normalize magnitudes between min and max just for visualization
-    vmin = float(np.nanmin(mag_matrix))
-    vmax = float(np.nanmax(mag_matrix))
-    im = plt.imshow(mag_matrix, vmin=vmin, vmax=vmax, aspect="auto")
-    plt.colorbar(im, label="Avg |projection|")
-
-    plt.xticks(x_ticks, SPAN_LABELS, rotation=90, ha="right", fontsize = 7)
-    plt.yticks(y_ticks, layer_indices, fontsize = 7)
-
-    # Add magnitude values
-    for i in range(n_layers_used):
-        for j in range(n_spans):
-            val = mag_matrix[i, j]
-            # text_color = "white" if (val - vmin) > 0.5 * (vmax - vmin) else "black"
-            text_color = "black"
-            plt.text(
-                j,
-                i,
-                f"{val:.2f}",
-                ha="center",
-                va="center",
-                fontsize=7,
-                color=text_color,
-            )
-
-    plt.xlabel("Token span")
-    plt.ylabel("Layer index")
-    plt.title("Average |projection| per span per layer")
-    plt.tight_layout()
-
-    mag_fig_path = os.path.join(results_dir, "span_projection_magnitude_heatmap.png")
-    plt.savefig(mag_fig_path, dpi=200)
-    plt.close(fig_mag)
-
+    plot_magnitude(mag_matrix, x_ticks, y_ticks, 
+                        layer_indices, n_layers_used, n_spans, 
+                        results_dir, x_labels)
     print("Done.")
-    print(f"Accuracy heatmap saved to: {acc_fig_path}")
-    print(f"Projection magnitude heatmap saved to: {mag_fig_path}")
-
 
 if __name__ == "__main__":
     main()
