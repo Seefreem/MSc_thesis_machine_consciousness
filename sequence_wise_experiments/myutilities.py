@@ -20,6 +20,12 @@ SPAN_LABELS = [
     "blank",            # "_"
 ]
 
+SPAN_LABELS_EXP2 = [
+    "context_prefix",  # "context: "
+    "context",         # "{c1}. \n"
+    "task",             # "Task: Binary humor classification ... Answer: The given context is"
+    "blank",            # "_"
+]
 
 def plot_magnitude(mag_matrix, x_ticks, y_ticks, 
                    layer_indices, n_layers_used, n_spans, 
@@ -242,6 +248,74 @@ def compute_token_spans_for_sample(model, sample, tokenizer, task):
             raise ValueError(f'Key words not found of the sample: {sample}')
         token_span_ranges[SPAN_LABELS[3]] = [token_span_ranges[SPAN_LABELS[2]][1], token_span_ranges[SPAN_LABELS[4]][0]]
     return token_span_ranges, token_ids_wp
+def compute_token_spans_for_exp2_samples(model, sample, tokenizer, task):
+    wrapped_prompt = sample["wrapped_prompt"]
+    s0 = "Context:"
+    s2=''
+    if task == 'lay_w_t1':
+        if 'gemma' in model:
+            s2 = "Task: Binary humor classification of the given context (humorous or not humorous).\nAnswer: The given context is" # ['▁**'] 
+        elif 'llama' in model:
+            s2 = "Task: Binary humor classification of the given context (humorous or not humorous).\nAnswer: The given context is" 
+    elif task == 'lay_w_t2':
+        if 'gemma' in model:
+            s2 = (
+                "Task: Binary offense classification of the given context (offensive or not offensive).\nAnswer: The given context is"
+            )    
+        elif 'llama' in model:
+            s2 = (
+                "Task: Binary offense classification of the given context (offensive or not offensive).\nAnswer: The given context is"
+            )
+    elif task == 'lay_w_b':
+        pass
+    else:
+        raise ValueError(f"Unhandled task: {task}")
+        
+    token_span_ranges = {}
+    token_ids_wp = tokenizer(wrapped_prompt, padding=False)['input_ids']
+    token_ids_s0 = tokenizer(s0, add_special_tokens=False)['input_ids']
+    token_ids_s2 = tokenizer(s2, add_special_tokens=False)['input_ids']
+    # print('tokens_wp\n', tokenizer.convert_ids_to_tokens(token_ids_wp))
+    # print('token_ids_wp\n', len(token_ids_wp), token_ids_wp)
+    # print('token_ids_s0\n', len(token_ids_s0), token_ids_s0)
+    # print('tokens_s0\n', tokenizer.convert_ids_to_tokens(token_ids_s0))
+    # print('token_ids_s2\n', len(token_ids_s2), token_ids_s2)
+    # print('tokens_s2\n', tokenizer.convert_ids_to_tokens(token_ids_s2))
+    
+    if task == 'lay_w_b':
+        pieces = [token_ids_s0]
+        labels = [SPAN_LABELS_EXP2[0]]
+    else:
+        pieces = [token_ids_s0, token_ids_s2]
+        labels = [SPAN_LABELS_EXP2[0], SPAN_LABELS_EXP2[2]]
+    
+    for (span, label) in zip(pieces, labels):
+        len_span = len(span)
+        for i in range(len(token_ids_wp) - len_span):
+            # print(span == token_ids_wp[i:i + len_span])
+            # print((span == token_ids_wp[i:i + len_span]))
+            if (span == token_ids_wp[i:i + len_span]):
+                # print(f'Found the span of {label}')
+                start_s0 = i
+                end_s0 = i + len_span
+                token_span_ranges[label] = [start_s0, end_s0]
+                break
+    # check 
+    # token_span_ranges[SPAN_LABELS_EXP2[1]] = [token_span_ranges[SPAN_LABELS_EXP2[0]][1], token_span_ranges[SPAN_LABELS_EXP2[2]][0]]
+    token_span_ranges[SPAN_LABELS_EXP2[3]] = [len(token_ids_wp) - 1, len(token_ids_wp)]
+    if task == 'lay_w_b':
+        if not (SPAN_LABELS_EXP2[0] in token_span_ranges.keys() and 
+            SPAN_LABELS_EXP2[3] in token_span_ranges.keys()):
+            raise ValueError(f'Key words not found of the sample: {sample}')
+        token_span_ranges[SPAN_LABELS_EXP2[1]] = [token_span_ranges[SPAN_LABELS_EXP2[0]][1], token_span_ranges[SPAN_LABELS_EXP2[3]][0]]
+    else:
+        if not (SPAN_LABELS_EXP2[0] in token_span_ranges.keys() and 
+            SPAN_LABELS_EXP2[2] in token_span_ranges.keys() and 
+            SPAN_LABELS_EXP2[3] in token_span_ranges.keys()):
+            raise ValueError(f'Key words not found of the sample: {sample}')
+        token_span_ranges[SPAN_LABELS_EXP2[1]] = [token_span_ranges[SPAN_LABELS_EXP2[0]][1], token_span_ranges[SPAN_LABELS_EXP2[2]][0]]
+    # print('token_span_ranges\n', token_span_ranges)
+    return token_span_ranges, token_ids_wp
 
 def set_seed(seed: int):
     np.random.seed(seed)
@@ -303,11 +377,43 @@ def wrap_example(model, context_1: str, context_2: str, template_type: str) -> s
             )
         PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
     elif template_type == 'lay_w_t1':
-        raise ValueError(f"Unhandled template type {template_type}")
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = (
+                "Context: {c1}. \n"
+                "Task: Binary humor classification of the given context (humorous or not humorous).\n"
+                "Answer: The given context is **"
+            )
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = (
+                "Context: {c1}. \n"
+                "Task: Binary humor classification of the given context (humorous or not humorous).\n"
+                "Answer: The given context is _"
+            )
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1)
     elif template_type == 'lay_w_t2':
-        raise ValueError(f"Unhandled template type {template_type}")
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = (
+                "Context: {c1}. \n"
+                "Task: Binary offense classification of the given context (offensive or not offensive).\n"
+                "Answer: The given context is **"
+            )
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = (
+                "Context: {c1}. \n"
+                "Task: Binary offense classification of the given context (offensive or not offensive).\n"
+                "Answer: The given context is _"
+            )
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1)
     elif template_type == 'lay_w_b':
-        raise ValueError(f"Unhandled template type {template_type}")
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = (
+                "Context: {c1}. **"
+            )
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = (
+                "Context: {c1}. _"
+            )
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1)
     elif template_type == 'selective_attention':
         raise ValueError(f"Unhandled template type {template_type}")
     else:

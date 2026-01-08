@@ -14,13 +14,14 @@ from sklearn.exceptions import NotFittedError
 
 from myutilities import set_seed, load_metadata, infer_dims
 from myutilities import compute_token_spans_for_sample
+from myutilities import compute_token_spans_for_exp2_samples
 from myutilities import save_updated_json
 from myutilities import load_probes
 from myutilities import compute_avg_acc_mag
 from myutilities import save_matrices
 from myutilities import plot_acc 
 from myutilities import plot_magnitude
-from myutilities import SPAN_LABELS
+from myutilities import SPAN_LABELS, SPAN_LABELS_EXP2
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -125,8 +126,20 @@ def main():
     # ---- Step 5: compute token id spans and update JSON ----
     print("Computing token spans per sample...")
     all_token_spans = []
+    span_labels = SPAN_LABELS
     for i, sample in enumerate(data):
-        token_span_ranges, input_ids = compute_token_spans_for_sample(args.model_name, sample, tokenizer, args.task)
+        if 'sen_w' in args.task:
+            token_span_ranges, input_ids = compute_token_spans_for_sample(
+                args.model_name, sample, tokenizer, args.task
+            )
+            span_labels = SPAN_LABELS
+        elif 'lay_w' in args.task:
+            token_span_ranges, input_ids = compute_token_spans_for_exp2_samples(
+                args.model_name, sample, tokenizer, args.task
+            )
+            span_labels = SPAN_LABELS_EXP2
+        else:
+            raise ValueError(f'Unhandled task type {args.task}')
         sample["token_spans"] = token_span_ranges
         # Optionally also store tokenized length
         sample["prompt_num_tokens"] = len(input_ids)
@@ -143,7 +156,7 @@ def main():
 
     # ---- Step 6 & 7: average pooling per span, apply probes ----
     # Prepare global containers for accuracy + projection magnitude
-    n_spans = len(SPAN_LABELS)
+    n_spans = len(span_labels)
     n_layers = len(layer_indices)
 
     layer_results = {}
@@ -187,7 +200,7 @@ def main():
             w = clf.coef_.reshape(-1)
             w_norm = np.linalg.norm(w) + 1e-9
             w_unit = w / w_norm
-            for s_idx, span_label in enumerate(SPAN_LABELS):
+            for s_idx, span_label in enumerate(span_labels):
                 start, end = token_spans[span_label]
 
                 # Clip into prompt token range, ignore generated tokens
@@ -234,7 +247,7 @@ def main():
         print(f"  Saving per-layer span results to {npz_path}")
         np.savez(
             npz_path,
-            span_labels=np.array(SPAN_LABELS),
+            span_labels=np.array(span_labels),
             y_true=layer_results[lay_idx]["y_true"],
             y_pred=layer_results[lay_idx]["y_pred"],
             proj=layer_results[lay_idx]["proj"],
@@ -247,7 +260,7 @@ def main():
                 n_layers_used, n_spans, layer_indices, layer_results)
 
     # Save matrices
-    x_labels = SPAN_LABELS
+    x_labels = span_labels
     results_dir = os.path.join(base_dir, output_dub_dir)
     save_matrices(results_dir, layer_indices, acc_matrix, mag_matrix, x_labels)
 

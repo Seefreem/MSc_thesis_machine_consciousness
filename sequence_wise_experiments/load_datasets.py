@@ -23,34 +23,21 @@ def load_imdb_sms_for_transformer(
 
 
 def load_hahackathon_combined_for_transformer(
-    csv_path: str = os.path.join("_datasets.hahackathon_subsets", "combined_subset.csv"),
+    json_path: str = os.path.join("_datasets/hahackathon_subsets", "combined_subset.json"),
 ):
     """
-    Load combined_subset.csv and convert it into a tokenized HuggingFace Dataset
+    Load combined_subset.json and convert it into a tokenized HuggingFace Dataset
     suitable for Transformer models.
 
     - Input text:  text_column (default: 'text')
-    - Labels:      is_humor (binary), humor_rating (float), offense_rating (float)
+    - Labels:      is_humor (binary), is_offensive (binary), ...
     """
-    df = pd.read_csv(csv_path)
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    ds = Dataset.from_list(data).cast_column("is_humor", Value("float32"))
+    ds = ds.cast_column("is_offensive", Value("float32"))
 
-    ds = Dataset.from_pandas(df)
-
-    # Ensure label dtypes (optional but often useful)
-    if "is_humor" in ds.column_names:
-        # ds = ds.cast_column("is_humor", ds.features["is_humor"].cast("int64"))
-        ds = ds.cast_column("is_humor", Value("float32"))
-    if "is_offensive" in ds.column_names:
-        # ds = ds.cast_column("is_offensive", ds.features["is_offensive"].cast("int64"))
-        ds = ds.cast_column("is_offensive", Value("float32"))
-    if "humor_rating" in ds.column_names:
-        # ds = ds.cast_column("humor_rating", ds.features["humor_rating"].cast("float32"))
-        ds = ds.cast_column("humor_rating", Value("float32"))
-    if "offense_rating" in ds.column_names:
-        # ds = ds.cast_column("offense_rating", ds.features["offense_rating"].cast("float32"))
-        ds = ds.cast_column("offense_rating", Value("float32"))
-
-    return ds
+    return data, ds
 
 # def main():
 #     imdb_sms = load_imdb_sms_for_transformer()

@@ -14,6 +14,7 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.exceptions import NotFittedError
 from myutilities import set_seed, load_metadata, infer_dims
 from myutilities import compute_token_spans_for_sample
+from myutilities import compute_token_spans_for_exp2_samples
 from myutilities import save_updated_json
 from myutilities import load_probes
 from myutilities import save_layer_results 
@@ -21,7 +22,7 @@ from myutilities import compute_avg_acc_mag
 from myutilities import save_matrices
 from myutilities import plot_acc 
 from myutilities import plot_magnitude
-from myutilities import SPAN_LABELS
+from myutilities import SPAN_LABELS, SPAN_LABELS_EXP2
 
 # Configure logging
 logging.basicConfig(
@@ -64,6 +65,12 @@ def parse_args():
         default='normalized',
         help='inf: un-normalized, for activation intervention; normalized: normalized, for information probing'
     ) 
+    parser.add_argument(
+        "--task", 
+        type=str, 
+        default='sen_w_t1',
+        help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
+        ) 
 
     return parser.parse_args()
 
@@ -71,10 +78,16 @@ def main():
     args = parse_args()
     set_seed(args.seed)
     print(args)
-    target_file_name= "imdb_sms_interval_1_pairs_with_activations.json"
+    if 'sen_w' in args.task:
+        target_file_name= "imdb_sms_interval_1_pairs_with_activations.json"
+        tasks = ['sen_w_t1', 'sen_w_t2', 'sen_w_b']
+    elif 'lay_w' in args.task:
+        target_file_name= "imdb_sms_interval_1_pairs_with_activations.json"
+        tasks = ['lay_w_t1', 'lay_w_t2', 'lay_w_b']
+    else:
+        raise ValueError(f'unhandled task {args.task}')
     input_base_dir = os.path.join(args.data_dir, args.model_name)
     output_base_dir = os.path.join(args.data_dir, args.model_name, 'cross_probing')
-    tasks = ['sen_w_t1', 'sen_w_t2', 'sen_w_b']
     data_all = {}
     for task in tasks:
         target_file = str(task) + "_" + target_file_name
@@ -86,7 +99,7 @@ def main():
     print(f"Loaded {n_samples} samples.")
 
     # Determine layers
-    first_hidden_path = data_all['sen_w_t1'][0]["hidden_states_file"]
+    first_hidden_path = data_all[tasks[0]][0]["hidden_states_file"]
     _, n_layers_total, feat_dim = infer_dims(first_hidden_path)
     print(f"Detected n_layers={n_layers_total}, feat_dim={feat_dim}")
     
@@ -100,8 +113,21 @@ def main():
     # ---- Step 5: compute token id spans and update JSON ----
     print("Computing token spans per sample...")
     for task in tasks:
-        for i, sample in enumerate(data_all[task]):
-            token_span_ranges, input_ids = compute_token_spans_for_sample(args.model_name, sample, tokenizer, task)
+        print('Processing task', task)
+        for i, sample in enumerate(data_all[task]):            
+            # token_span_ranges, input_ids = compute_token_spans_for_sample(args.model_name, sample, tokenizer, task)
+            if 'sen_w' in args.task:
+                token_span_ranges, input_ids = compute_token_spans_for_sample(
+                    args.model_name, sample, tokenizer, task
+                )
+                span_labels = SPAN_LABELS
+            elif 'lay_w' in args.task:
+                token_span_ranges, input_ids = compute_token_spans_for_exp2_samples(
+                    args.model_name, sample, tokenizer, task
+                )
+                span_labels = SPAN_LABELS_EXP2
+            else:
+                raise ValueError(f'Unhandled task type {args.task}')
             sample["token_spans"] = token_span_ranges
             # Optionally also store tokenized length
             sample["prompt_num_tokens"] = len(input_ids)
@@ -137,24 +163,31 @@ def main():
     # process all the samples
     for task in tasks:
         data = data_all[task]
-        n_spans = len(SPAN_LABELS)-1 if task=='sen_w_b' else len(SPAN_LABELS)
         x_labels = []
-        if task == 'sen_w_t1':
+        if task == 'sen_w_t1' or task == 'sen_w_t2':
             x_labels = SPAN_LABELS
-        elif task == 'sen_w_t2':
-            x_labels = SPAN_LABELS
-        else:
+        elif task == 'sen_w_b':
             x_labels = SPAN_LABELS[:4] + SPAN_LABELS[-1:]
+        elif task == 'lay_w_t1' or task == 'lay_w_t2':
+            x_labels = SPAN_LABELS_EXP2
+        elif task == 'lay_w_b':
+            x_labels = SPAN_LABELS_EXP2[:2] + SPAN_LABELS_EXP2[-1:]
+        else:
+            raise ValueError(f'Unhandled task {task}')
+        n_spans = len(x_labels)
         logger.info(f'Task of datasets: {task}; Span labels {x_labels}')
             
         for probe_task in all_probes:
             print(f'Apply probes of task {probe_task} to activations of task {task}')
+            label_feature=''
             if probe_task == 'sen_w_t1':
                 label_feature='label_context_1'
             elif probe_task == 'sen_w_t2':
                 label_feature='label_context_2'
-            else:
-                label_feature=''
+            if probe_task == 'lay_w_t1':
+                label_feature='is_humor'
+            elif probe_task == 'lay_w_t2':
+                label_feature='is_offensive'
 
             probes = all_probes[probe_task]
             layer_results = {}

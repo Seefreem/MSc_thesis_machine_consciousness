@@ -2,6 +2,8 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import json
+from json import loads, dumps
 
 DATA_PATH = "download_cache/hahackathon-2021/datasets/hahackathon_train.csv"
 OUT_DIR = "hahackathon_subsets"
@@ -59,9 +61,12 @@ def main():
     combined["is_offensive"] = (combined["offense_rating"] > 0).astype(int)
 
     # Save the final combined subset into a CSV file
-    output_csv = os.path.join(OUT_DIR, "combined_subset.csv")
-    combined.to_csv(output_csv, index=False, encoding="utf-8")
-    print(f"Saved combined subset to: {output_csv}")
+    output_json = os.path.join(OUT_DIR, "combined_subset.json")
+    json_str = combined.to_json(orient="records")
+    parsed = loads(json_str)
+    with open(output_json, "w", encoding="utf-8") as f:
+        json.dump(parsed, f, ensure_ascii=False, indent=2)
+    print(f"Saved combined subset to: {output_json}")
 
 
     # ======================================================

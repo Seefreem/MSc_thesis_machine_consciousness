@@ -41,6 +41,13 @@ def get_label_token_mapping(tokenizer, label_feature: str):
     elif label_feature == 'label_context_2': # Spam detection
         token_id_to_label[tokenizer('spam', add_special_tokens=False).input_ids[0]] = 1
         token_id_to_label[tokenizer('ham', add_special_tokens=False).input_ids[0]] = 0
+    elif label_feature == 'is_humor': 
+        token_id_to_label[tokenizer('humorous', add_special_tokens=False).input_ids[0]] = 1
+        token_id_to_label[tokenizer('not humorous', add_special_tokens=False).input_ids[0]] = 0
+    elif label_feature == 'is_offensive': 
+        token_id_to_label[tokenizer('offensive', add_special_tokens=False).input_ids[0]] = 1
+        token_id_to_label[tokenizer('not offensive', add_special_tokens=False).input_ids[0]] = 0
+        
     else:
         raise ValueError(f"Unknown label feature: {label_feature}")
 
@@ -110,7 +117,7 @@ def main(args):
 
         # Debug print for first few samples
         if idx < debug_print_limit:
-            print(f"--- Sample: {item['context_2']} ---")
+            # print(f"--- Sample: {item['context_2']} ---")
             print(f"  {args.label_feature} (true): {true_label}")
             print(f"  generated_text: {gen_text}")
             print(f"  token_ids: {ids}")

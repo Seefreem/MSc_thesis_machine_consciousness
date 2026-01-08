@@ -1,5 +1,5 @@
 # Define the __all__ variable
-__all__ = ["load_datasets"]
+__all__ = ["load_datasets", 'myutilities']
 
 # Import the submodules
 from . import load_datasets

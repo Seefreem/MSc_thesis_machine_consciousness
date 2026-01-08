@@ -10,6 +10,7 @@ from datasets import Dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm import tqdm
 from load_datasets import load_imdb_sms_for_transformer
+from load_datasets import load_hahackathon_combined_for_transformer
 from myutilities import tuple_to_numpy_all_tokens
 from myutilities import attn_tuple_to_padded_numpy
 from myutilities import layer_token_tuple_to_numpy
@@ -22,7 +23,10 @@ def main(args):
     out_dir = Path(args.output_dir)
 
     # 1. Load local data
-    original_data, ds = load_imdb_sms_for_transformer(args.json_in_path)
+    if 'sen_w' in args.task:
+        original_data, ds = load_imdb_sms_for_transformer(args.json_in_path)
+    elif 'lay_w' in args.task:
+        original_data, ds = load_hahackathon_combined_for_transformer(args.json_in_path)
 
     # 3. Load model + tokenizer
     tokenizer, model = setup_model_and_tokenizer(args.model_name)
@@ -42,7 +46,11 @@ def main(args):
         orig_example = original_data[idx]
 
         # 2. Wrap data into prompt
-        prompt = wrap_example(args.model_name, example["context_1"], example["context_2"], args.task)
+        if 'sen_w' in args.task:
+            prompt = wrap_example(args.model_name, example["context_1"], example["context_2"], args.task)
+        elif 'lay_w' in args.task:
+            prompt = wrap_example(args.model_name, example["text"], None, args.task)
+
         # print('prompt:\n', type(prompt), prompt)
 
         # Tokenize

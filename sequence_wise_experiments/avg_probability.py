@@ -68,9 +68,17 @@ def get_label_token_ids(tokenizer, label_feature: str):
     if label_feature == "label_context_1":
         label_words = ("positive", "negative", "POSITIVE", "NEGATIVE")
         word_to_numeric = {"positive": 1, "negative": 0, "POSITIVE":1, "NEGATIVE": 0}
-    else:
+    elif label_feature == "label_context_2":
         label_words = ("spam", "ham", "SPAM", "HAM")
         word_to_numeric = {"spam": 1, "ham": 0, "SPAM":1, "HAM":0}
+    elif label_feature == "is_humor":
+        label_words = ("humorous", "not", "HUMOROUS", "NOT")
+        word_to_numeric = {"humorous": 1, "not": 0, "HUMOROUS":1, "NOT":0}
+    elif label_feature == "is_offensive":
+        label_words = ("offensive", "not", "OFFENSIVE", "NOT")
+        word_to_numeric = {"offensive": 1, "not": 0, "OFFENSIVE":1, "NOT":0}
+    else:
+        raise ValueError(f'unhandled label {label_feature}')
 
     numeric_to_token_id = defaultdict(set)
 
