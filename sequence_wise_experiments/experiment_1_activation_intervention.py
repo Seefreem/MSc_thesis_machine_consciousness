@@ -143,7 +143,7 @@ def main(args):
         print('hidden_states_np.shape', hidden_states_np.shape)
 
         # Final logits and probabilities for each *new* token
-        logits_new = torch.cat(gen_out['logits'], 0).cpu().float().numpy().astype(np.float16)  #  x [new_tokens, vocab_size]
+        logits_new = torch.cat(gen_out['logits'], 0).cpu().float().numpy()# .astype(np.float16)  #  x [new_tokens, vocab_size]
 
         print('logits_new.shape', logits_new.shape)
 

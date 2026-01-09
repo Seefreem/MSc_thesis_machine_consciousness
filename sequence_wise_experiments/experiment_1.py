@@ -125,8 +125,8 @@ def main(args):
         #     print(i2.shape)
 
         # Final logits and probabilities for each *new* token
-        logits_new = torch.cat(gen_out['logits'], 0).cpu().float().numpy().astype(np.float16)  #  x [new_tokens, vocab_size]
-        # scores_new = torch.cat(gen_out['scores'], 0).cpu().float().numpy().astype(np.float16)  # x [new_tokens, vocab_size]
+        logits_new = torch.cat(gen_out['logits'], 0).cpu().float().numpy()# .astype(np.float16)  #  x [new_tokens, vocab_size]
+        # scores_new = torch.cat(gen_out['scores'], 0).cpu().float().numpy()# .astype(np.float16)  # x [new_tokens, vocab_size]
         # print('logits:\n',gen_out['logits'])
         # print('logits_new:\n',logits_new)
         # print('scores:\n',gen_out['scores'])

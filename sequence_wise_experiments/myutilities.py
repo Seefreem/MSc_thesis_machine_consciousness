@@ -423,9 +423,9 @@ def wrap_example(model, context_1: str, context_2: str, template_type: str) -> s
 
 
 def save_activations(path: str, arr: np.ndarray):
-    arr16 = arr.astype(np.float16)     # or np.float32 -> np.float16
+    # arr16 = arr.astype(np.float16)     # or np.float32 -> np.float16
     # np.savez_compressed(path, arr=arr16)
-    np.save(path, arr=arr16)
+    np.save(path, arr=arr)
 
 def load_activations(path: str) -> np.ndarray:
     # data = np.load(path)
@@ -538,7 +538,7 @@ def tuple_to_numpy_all_tokens(
         t = data[0][layer_idx]  # shape: [1, n_input_tokens, hidden_size]
         if t.shape[1] != n_input_tokens:
             raise ValueError("Inconsistent seq_len for first new token across layers.")
-        out[:n_input_tokens, layer_idx, :] = t[0].detach().cpu().float().numpy().astype(np.float16)
+        out[:n_input_tokens, layer_idx, :] = t[0].detach().cpu().float().numpy()# .astype(np.float16)
 
     # 2) Append representations of each subsequent new token
     current_token_idx = n_input_tokens
@@ -551,7 +551,7 @@ def tuple_to_numpy_all_tokens(
                     f"layer_idx={layer_idx}, got {t.shape}"
                 )
             # Take the last (or only) position
-            out[current_token_idx, layer_idx, :] = t[0, -1].detach().cpu().float().numpy().astype(np.float16)
+            out[current_token_idx, layer_idx, :] = t[0, -1].detach().cpu().float().numpy()# .astype(np.float16)
         current_token_idx += 1
     # print('check1====')
     # print(data[0][0][0, 0,:])
@@ -631,7 +631,7 @@ def attn_tuple_to_padded_numpy(
             _, _, _, seq_len = tensor.shape
 
             # Extract attention: [n_heads, seq_len]
-            attn = tensor[0, :, -1, :].detach().cpu().float().numpy().astype(np.float16)
+            attn = tensor[0, :, -1, :].detach().cpu().float().numpy()# .astype(np.float16)
 
             # Right-align: put it in the last seq_len positions
             out[t_idx, l_idx, :, max_seq_len - seq_len:] = attn
@@ -711,7 +711,7 @@ def layer_token_tuple_to_numpy(
                     f"Inconsistent shape at layer {layer_idx}, step {step_idx}: "
                     f"got {tensor.shape}, expected (1, {tokens_t}, {activation_dim})"
                 )
-            arr = tensor[0].detach().cpu().float().numpy().astype(np.float16)  # (tokens_t, activation_dim)
+            arr = tensor[0].detach().cpu().float().numpy()# .astype(np.float16)  # (tokens_t, activation_dim)
             out[offset : offset + tokens_t, layer_idx, :] = arr
 
         offset += tokens_t
