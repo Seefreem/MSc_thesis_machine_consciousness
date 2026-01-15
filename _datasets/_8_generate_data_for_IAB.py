@@ -227,8 +227,8 @@ class Classroom:
 
         self.distractor_start: int = max(1, spawn_steps // 2)
         # We mark timestamps as "unexpected event happening" across these steps:
-        self.distractor_timestamps = set(
-            range(self.distractor_start, self.distractor_start + max(1, self.distractor_duration + 1))
+        self.distractor_timestamps = list(
+            range(self.distractor_start, self.distractor_start + max(1, self.distractor_duration))
         )
         self.distractor_spawned = False
 
@@ -278,7 +278,7 @@ class Classroom:
             counts[key] = counts.get(key, 0) + 1
 
         parts: List[str] = []
-        # A stable-ish order: students first, then teacher/cleaner/dog; and within, by gender/action
+        # A stable-ish order: action first, then student/teacher/cleaner/dog; and by gender
         role_order = {"student": 0, "teacher": 1, "cleaner": 2, "dog": 3}
         action_order = {
             ACTION_COME_IN: 0,
@@ -290,7 +290,7 @@ class Classroom:
         
         for (gender, role, act), n in sorted(
             counts.items(),
-            key=lambda kv: (role_order.get(kv[0][1], 99), action_order.get(kv[0][2], 99), kv[0][0]),
+            key=lambda kv: (action_order.get(kv[0][2], 99), role_order.get(kv[0][1], 99), kv[0][0]),
         ):
             parts.append(format_group(n, gender, role, act))
 
@@ -322,9 +322,6 @@ class Classroom:
             actions = self._collect_actions()
             self._update_homework_stats(actions)
 
-            if t in self.distractor_timestamps:
-                self.summary["unexpected event"].append(t)  # type: ignore[union-attr]
-
             line = self._timestep_statement(t, actions)
             logs.append(line)
             self._prune_entities()
@@ -335,9 +332,6 @@ class Classroom:
             actions = self._collect_actions()
             self._update_homework_stats(actions)
 
-            if t in self.distractor_timestamps:
-                self.summary["unexpected event"].append(t)  # type: ignore[union-attr]
-
             line = self._timestep_statement(t, actions)
             logs.append(line)
             self._prune_entities()
@@ -345,7 +339,7 @@ class Classroom:
             # Safety guard (should never hit)
             if t > self.spawn_steps + self.student_max_timer + 20:
                 raise RuntimeError("Simulation did not terminate as expected.")
-
+        self.summary["unexpected event"] = self.distractor_timestamps
         self.summary["total time"] = t + 1  # type: ignore[index]
 
         if print_log:
@@ -378,7 +372,7 @@ def main() -> None:
                         spawn_steps=lenth,            # how long we keep introducing new students
                         students_per_step=(1, 2),  # randomly 1 or 2 students each step
                         student_max_timer=3,       # timer 0..3 (max 4 time steps per entity)
-                        distractor_duration=1,     # short unexpected event
+                        distractor_duration=3,     # short unexpected event
                     )
                     log, summary = classroom.run(print_log=True)
                     if not ("\n".join(log) in activity_str):
@@ -386,26 +380,27 @@ def main() -> None:
                         for gen_of_focus in GENDERS:
                             summary['prompt_template'] = "Introduction: You will first see a sequence of activities in a classroom and then answer a question.\n Question: {c1};\n Activities in the classroom: {c2};\n Your answer: there are _"
                             summary['activities'] = "\n".join(log)
-                            summary['question_1'] = f'how many {gen_of_focus} students had submited their homework papers?'
+                            summary['question_1'] = f'how many {gen_of_focus} students had submitted their homework papers?'
                             summary['answer_1'] = summary['students'][gen_of_focus]
                             summary['question_2'] = f'Did you see a {role} in the classroom?'
                             summary['answer_2'] = 1 # Did see the distractor
-                            samples_json.append(json.dumps(summary))   
+                            samples_json.append(summary)   
 
                             summary['prompt_template'] = "Introduction: You will first see a sequence of activities in a classroom and then answer a question.\n Question: {c1};\n Activities in the classroom: {c2};\n Your answer: there are _"
                             summary['activities'] = "\n".join(log)
-                            summary['question_1'] = f'how many {gen_of_focus} students had submited their homework papers?'
+                            summary['question_1'] = f'how many {gen_of_focus} students had submitted their homework papers?'
                             summary['answer_1'] = summary['students'][gen_of_focus]
                             non_target_role = random.choice([ite for ite in dis_roles if not ite==role])
                             summary['question_2'] = f'Did you see a {non_target_role} in the classroom?'
                             summary['answer_2'] = 0 # Did not see the distractor
-                            samples_json.append(json.dumps(summary)) 
+                            samples_json.append(summary) 
                     time.sleep(11.0/1000.0)  
     os.makedirs('./_datasets/IAB/', exist_ok=True)
+    print('=========An Exmaple of Generated Data=========')
+    print(json.dumps([samples_json[0]], indent=4))
     with open('./_datasets/IAB/iab.json', "w", encoding="utf-8") as f:
         json.dump(samples_json, f, ensure_ascii=False, indent=2)
     print(len(samples_json))
 
 if __name__ == "__main__":
     main()
-
