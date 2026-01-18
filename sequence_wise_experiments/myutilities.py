@@ -531,7 +531,7 @@ def tuple_to_numpy_all_tokens(
     all_tokens = n_input_tokens + (new_tokens - 1)
 
     # Preallocate numpy array
-    out = np.empty((all_tokens, n_layers, hidden_size), dtype=np.float16)
+    out = np.empty((all_tokens, n_layers, hidden_size), dtype=np.float32)
 
     # 1) Fill in representations for all input tokens from the first step
     for layer_idx in range(n_layers):
@@ -621,7 +621,7 @@ def attn_tuple_to_padded_numpy(
     # Preallocate output: zero-initialized for left-padding
     out = np.zeros(
         (new_tokens, n_layers, n_heads, max_seq_len),
-        dtype=np.float16,
+        dtype=np.float32,
     )
 
     # Fill with right-aligned attention scores
@@ -699,7 +699,7 @@ def layer_token_tuple_to_numpy(
     total_tokens = sum(tokens_per_step)
 
     # Allocate output: (total_tokens, n_layers, activation_dim)
-    out = np.empty((total_tokens, n_layers, activation_dim), dtype=np.float16)
+    out = np.empty((total_tokens, n_layers, activation_dim), dtype=np.float32)
 
     # Fill: iterate over layers and steps, share the same token offset across layers
     offset = 0
