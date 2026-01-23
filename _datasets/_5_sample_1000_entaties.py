@@ -94,12 +94,16 @@ def main():
     sms_sampled_by_label = sample_by_label(sms_examples, label_key="label", n_per_label=500)
 
     # Flatten to get 1000 examples per dataset
+    random.shuffle(imdb_sampled_by_label[0]) 
+    random.shuffle(imdb_sampled_by_label[1])
+    random.shuffle(sms_sampled_by_label[0])
+    random.shuffle(sms_sampled_by_label[1])
     imdb_selected = imdb_sampled_by_label[0] + imdb_sampled_by_label[1]
-    sms_selected = sms_sampled_by_label[0] + sms_sampled_by_label[1]
+    sms_selected = sms_sampled_by_label[0][:250] + sms_sampled_by_label[1][:250] + sms_sampled_by_label[0][250:] + sms_sampled_by_label[1][250:]
 
     # Shuffle them independently
-    random.shuffle(imdb_selected)
-    random.shuffle(sms_selected)
+    # random.shuffle(imdb_selected)
+    # random.shuffle(sms_selected)
 
     # 3. Randomly combine the 1000 imdb items and 1000 sms items to form 1000 pairs
     num_pairs = 1000
