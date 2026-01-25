@@ -172,11 +172,13 @@ def main():
     # Load all the needed probes
     all_probes = load_probes(args, layer_indices, parent_dir, args.task)
     for l_idx in layer_indices:
-        layer_results[l_idx] = {
-            "y_true": np.zeros((n_samples,), dtype=np.int32),
-            "y_pred": np.zeros((n_spans, n_samples), dtype=np.int32),
-            "proj": np.zeros((n_spans, n_samples), dtype=np.float32),
-        }
+        layer_results[l_idx] = {}
+        for span_label in span_labels:
+            layer_results[l_idx][span_label] = {
+                "y_true": [],
+                "y_pred": [],
+                "proj": [],
+            }
 
     # process all the samples
     
@@ -193,7 +195,7 @@ def main():
         prompt_num_tokens = sample.get("prompt_num_tokens", all_tokens)
         prompt_num_tokens = min(prompt_num_tokens, all_tokens)
         for li, lay_idx in enumerate(layer_indices):
-            layer_results[lay_idx]['y_true'][samp_idx] = int(sample[args.label_feature])
+            # layer_results[lay_idx]['y_true'][samp_idx] = int(sample[args.label_feature])
             # print('Probes from layer', lay_idx)
             scaler = all_probes[lay_idx]["scaler"]
             clf = all_probes[lay_idx]["classifier"]
@@ -202,16 +204,15 @@ def main():
             w_unit = w / w_norm
             for s_idx, span_label in enumerate(span_labels):
                 start, end = token_spans[span_label]
-
                 # Clip into prompt token range, ignore generated tokens
                 start_clipped = max(0, min(start, prompt_num_tokens))
                 end_clipped = max(0, min(end, prompt_num_tokens))
 
                 # Average pooling across tokens of this span
-                span_reps = hs[start_clipped:end_clipped, lay_idx, :]  # [n_span_tokens, feat_dim]
-                feat = span_reps.mean(axis=0)  # [feat_dim]
+                feat = hs[start_clipped:end_clipped, lay_idx, :]  # [n_span_tokens, feat_dim]
+                # feat = span_reps.mean(axis=0)  # [feat_dim]
                 # for debugging
-                if i < 2:
+                if samp_idx < 2 and li == 0:
                     print('hs.shape:', hs.shape)
                     print(f'Check: label: {span_label}; range{token_spans[span_label]}')
                     tokens_in_span = tokenizer([sample['wrapped_prompt']], 
@@ -222,42 +223,27 @@ def main():
                 # Apply probe: scale -> predict -> projection
                 try:
                     check_is_fitted(scaler)
-                    feat_scaled = scaler.transform(feat.reshape(1, -1))  # [BS==1, feat_dim]
+                    feat_scaled = scaler.transform(feat)  # [BS==1, feat_dim]
                 except NotFittedError as exc:
                     # print(f"Note scaler is not fitted yet.")
-                    feat_scaled = feat.reshape(1, -1)
-                pred_label = clf.predict(feat_scaled)
-                layer_results[lay_idx]['y_pred'][s_idx, samp_idx] = pred_label[0]
-
+                    feat_scaled = feat
+                pred_label = clf.predict(feat_scaled) #(n_token_in_token_span,)
+                layer_results[lay_idx][span_label]['y_pred'].append(pred_label)
+                layer_results[lay_idx][span_label]['y_true'].append(np.full_like(pred_label, 
+                    fill_value=int(sample[args.label_feature])))
                 # Projection on probe direction (in scaled space)
-                proj_val = float(np.dot(feat_scaled[0], w_unit))
-                # proj[s_idx, i] = proj_val
-                layer_results[lay_idx]['proj'][s_idx, samp_idx] = proj_val
+                proj_val = np.dot(feat_scaled, w_unit) #(n_token_in_token_span,)
+                layer_results[lay_idx][span_label]['proj'].append(proj_val)
 
         if (samp_idx + 1) % 100 == 0 or samp_idx == n_samples - 1:
             print(f"  Processed {samp_idx + 1}/{n_samples} samples for layers {layer_indices}")
 
-    for li, lay_idx in enumerate(layer_indices):
-        # Save per-layer results
-        layer_out_dir = os.path.join(
-            base_dir, output_dub_dir, f"layer_{lay_idx}"
-        )
-        os.makedirs(layer_out_dir, exist_ok=True)
-        npz_path = os.path.join(layer_out_dir, f"span_results_layer{lay_idx}.npz")
-        print(f"  Saving per-layer span results to {npz_path}")
-        np.savez(
-            npz_path,
-            span_labels=np.array(span_labels),
-            y_true=layer_results[lay_idx]["y_true"],
-            y_pred=layer_results[lay_idx]["y_pred"],
-            proj=layer_results[lay_idx]["proj"],
-        )
 
     # ---- Step 8: compute accuracy + average projection magnitude across samples ----
 
     n_layers_used = len(layer_indices)
     acc_matrix, mag_matrix = compute_avg_acc_mag(
-                n_layers_used, n_spans, layer_indices, layer_results)
+                n_layers_used, span_labels, layer_indices, layer_results)
 
     # Save matrices
     x_labels = span_labels

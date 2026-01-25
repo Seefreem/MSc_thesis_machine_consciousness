@@ -1,5 +1,7 @@
 # Ignore log files
 *.log
+*.stdout*
+*.stderr*
 
 # Ignore temp folders
 env

@@ -17,14 +17,14 @@ SPAN_LABELS = [
     "context2_prefix",  # "context 2: "
     "context2",         # "{c2}.\n "
     "task",             # "Task: sentiment analysis ... Sentiment of context 1 is "
-    "blank",            # "_"
+    "last_token",            # "_"
 ]
 
 SPAN_LABELS_EXP2 = [
     "context_prefix",  # "context: "
     "context",         # "{c1}. \n"
     "task",             # "Task: Binary humor classification ... Answer: The given context is"
-    "blank",            # "_"
+    "last_token",            # "_"
 ]
 
 def plot_magnitude(mag_matrix, x_ticks, y_ticks, 
@@ -116,27 +116,25 @@ def save_matrices(results_dir, layer_indices, acc_matrix, mag_matrix, span_label
         mag_matrix=mag_matrix,
     )
 
-def compute_avg_acc_mag(n_layers_used, n_spans, layer_indices, layer_results):
+def compute_avg_acc_mag(n_layers_used, span_labels, layer_indices, layer_results):
     print("Computing accuracy and average projection magnitude matrices...")
-    acc_matrix = np.zeros((n_layers_used, n_spans), dtype=np.float32)
-    mag_matrix = np.zeros((n_layers_used, n_spans), dtype=np.float32)
-
+    acc_matrix = np.zeros((n_layers_used, len(span_labels)), dtype=np.float32)
+    mag_matrix = np.zeros((n_layers_used, len(span_labels)), dtype=np.float32)
+    # layer_results[lay_idx][span_label]['y_true']
     for li, layer_idx in enumerate(layer_indices):
-        res = layer_results[layer_idx]
-        y_true = res["y_true"]            # [n_samples]
-        y_pred = res["y_pred"]            # [n_spans, n_samples]
-        proj = res["proj"]                # [n_spans, n_samples]
+        l_res = layer_results[layer_idx]
+        for s_idx, s_label in enumerate(span_labels):
+            y_true = np.concatenate(l_res[s_label]["y_true"])            
+            y_pred = np.concatenate(l_res[s_label]["y_pred"])            
+            proj = np.concatenate(l_res[s_label]["proj"])                
 
-        for s_idx in range(n_spans):
-            preds = y_pred[s_idx]
             # Accuracy for this span & layer
-            acc = accuracy_score(y_true, preds)
+            acc = accuracy_score(y_true, y_pred)
             acc_matrix[li, s_idx] = acc
 
             # Average magnitude of projection (abs) across samples
-            proj_vals = proj[s_idx]
             # Ignore NaNs if any
-            mag = np.nanmean(np.abs(proj_vals))
+            mag = np.nanmean(np.abs(proj))
             mag_matrix[li, s_idx] = mag
     return acc_matrix, mag_matrix
 

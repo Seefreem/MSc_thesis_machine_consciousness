@@ -101,13 +101,13 @@ def main(args):
         hidden_states_np = tuple_to_numpy_all_tokens(gen_out['hidden_states'])
         # for go in gen_out['hidden_states']:
         #     print(go[0].shape)
-        print('hidden_states_np.shape', hidden_states_np.shape)
+        # print('hidden_states_np.shape', hidden_states_np.shape)
         # Attention scores (per layer)
         # new_tokens x (layers) x [BS, heads, 1, whole_sequence]
         # since the length of attention vectors increase during generation, we use zero-left-padding in ndarray
         # output nd.array.shape: (new_tokens, n_layers, n_heads, max_seq_len)
         attention_scores_np = attn_tuple_to_padded_numpy(gen_out['attentions'])
-        print('attention_scores_np.shape', attention_scores_np.shape)
+        # print('attention_scores_np.shape', attention_scores_np.shape)
         # MLP activations (per layer, from hooks)
         # mlp_acts_np = tensor_list_to_numpy(mlp_acts)  # [num_layers, seq_len, hidden_dim]
         # mlp_acts_np = layer_token_tuple_to_numpy(mlp_acts)
@@ -132,7 +132,7 @@ def main(args):
         # print('scores:\n',gen_out['scores'])
         # print('scores_new:\n',scores_new)
         # logits_new_np = logits_new.numpy()
-        print('logits_new.shape', logits_new.shape)
+        # print('logits_new.shape', logits_new.shape)
         # print('scores_new.shape', scores_new.shape)
 
         # 6. Save arrays to .npy files
