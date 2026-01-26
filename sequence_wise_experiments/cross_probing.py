@@ -78,11 +78,15 @@ def main():
     args = parse_args()
     set_seed(args.seed)
     print(args)
-    if 'sen_w' in args.task:
-        target_file_name= "imdb_sms_interval_1_pairs_with_activations.json"
+    exp1_tasks = {'sen_w_t1', 'sen_w_t2', 'sen_w_b'}
+    exp1_tasks_swp_cnt = {'sen_w_t1_swp_cnt', 'sen_w_t2_swp_cnt', 'sen_w_b_swp_cnt'}
+    exp2_tasks = {'lay_w_t1', 'lay_w_t2', 'lay_w_b'}
+    target_file_name= "data_with_activations.json"
+    if args.task in exp1_tasks:
         tasks = ['sen_w_t1', 'sen_w_t2', 'sen_w_b']
-    elif 'lay_w' in args.task:
-        target_file_name= "imdb_sms_interval_1_pairs_with_activations.json"
+    if args.task in exp1_tasks_swp_cnt:
+        tasks = ['sen_w_t1_swp_cnt', 'sen_w_t2_swp_cnt', 'sen_w_b_swp_cnt']
+    elif args.task in exp2_tasks:
         tasks = ['lay_w_t1', 'lay_w_t2', 'lay_w_b']
     else:
         raise ValueError(f'unhandled task {args.task}')
@@ -164,9 +168,9 @@ def main():
     for task in tasks:
         data = data_all[task]
         x_labels = []
-        if task == 'sen_w_t1' or task == 'sen_w_t2':
+        if 'sen_w_t' in task:
             x_labels = SPAN_LABELS
-        elif task == 'sen_w_b':
+        elif 'sen_w_b' in task:
             x_labels = SPAN_LABELS[:4] + SPAN_LABELS[-1:]
         elif task == 'lay_w_t1' or task == 'lay_w_t2':
             x_labels = SPAN_LABELS_EXP2
@@ -180,9 +184,9 @@ def main():
         for probe_task in all_probes:
             print(f'Apply probes of task {probe_task} to activations of task {task}')
             label_feature=''
-            if probe_task == 'sen_w_t1':
+            if 'sen_w_t1' in probe_task:
                 label_feature='label_context_1'
-            elif probe_task == 'sen_w_t2':
+            elif 'sen_w_t2' in probe_task:
                 label_feature='label_context_2'
             if probe_task == 'lay_w_t1':
                 label_feature='is_humor'

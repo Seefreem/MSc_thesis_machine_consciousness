@@ -178,14 +178,16 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, default='meta-llama/Llama-3.2-3B-Instruct')
     parser.add_argument("--json_in_path", type=str, default='_datasets/filtered_data/imdb_sms_interval_1_pairs.json')
     parser.add_argument("--output_dir", type=str, default='_datasets/')
-    parser.add_argument("--json_out_file", type=str, default='imdb_sms_interval_1_pairs_with_activations.json')
+    parser.add_argument("--json_out_file", type=str, default='data_with_activations.json')
     parser.add_argument("--max_new_tokens", type=int, default=10)
     parser.add_argument("--max_n_samples", type=int, default=None) 
     parser.add_argument(
         "--task", 
         type=str, 
         default='sen_w_t1',
-        help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
+        help=('Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, '
+              'sen_w_t1_swp_cnt, sen_w_t2_swp_cnt, sen_w_b_swp_cnt, '
+              'lay_w_t1, lay_w_t2, lay_w_b, and selective_attention')
         ) 
 
     args = parser.parse_args()

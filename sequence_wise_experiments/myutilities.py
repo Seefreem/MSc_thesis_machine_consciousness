@@ -200,7 +200,17 @@ def compute_token_spans_for_sample(model, sample, tokenizer, task):
             s4 = (
                 " Task: classify SMS incontext 2 as spam or ham (not a spam).\nContext 2 is classified as"
             )
-    elif task == 'sen_w_b':
+    if task == 'sen_w_t1_swp_cnt':
+        s4 = (
+            " Task: sentiment analysis of context 2; the only labels: positive or negative.\n"
+            "Sentiment of context 2 is"
+        )
+    elif task == 'sen_w_t2_swp_cnt':
+        s4 = (
+            " Task: classify SMS in context 1 as spam or ham (not a spam).\n"
+            "Context 1 is classified as"
+        )
+    elif 'sen_w_b' in task:
         pass
     else:
         raise ValueError(f"Unhandled task: {task}")
@@ -213,7 +223,7 @@ def compute_token_spans_for_sample(model, sample, tokenizer, task):
     # print(token_ids_wp.shap, token_ids_wp)
     # print(token_ids_s0.shape, token_ids_s0)
     
-    if task == 'sen_w_b':
+    if 'sen_w_b' in task:
         pieces = [token_ids_s0, token_ids_s2]
         labels = [SPAN_LABELS[0], SPAN_LABELS[2]]
     else:
@@ -234,7 +244,7 @@ def compute_token_spans_for_sample(model, sample, tokenizer, task):
     # check 
     token_span_ranges[SPAN_LABELS[1]] = [token_span_ranges[SPAN_LABELS[0]][1], token_span_ranges[SPAN_LABELS[2]][0]]
     token_span_ranges[SPAN_LABELS[5]] = [len(token_ids_wp) - 1, len(token_ids_wp)]
-    if task == 'sen_w_b':
+    if 'sen_w_b' in task:
         if not (SPAN_LABELS[0] in token_span_ranges.keys() and 
             SPAN_LABELS[2] in token_span_ranges.keys()):
             raise ValueError(f'Key words not found of the sample: {sample}')
@@ -246,6 +256,7 @@ def compute_token_spans_for_sample(model, sample, tokenizer, task):
             raise ValueError(f'Key words not found of the sample: {sample}')
         token_span_ranges[SPAN_LABELS[3]] = [token_span_ranges[SPAN_LABELS[2]][1], token_span_ranges[SPAN_LABELS[4]][0]]
     return token_span_ranges, token_ids_wp
+    
 def compute_token_spans_for_exp2_samples(model, sample, tokenizer, task):
     wrapped_prompt = sample["wrapped_prompt"]
     s0 = "Context:"
@@ -374,6 +385,44 @@ def wrap_example(model, context_1: str, context_2: str, template_type: str) -> s
                 "context 1: {c1}; \ncontext 2: {c2}.\n _"
             )
         PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
+    elif template_type == 'sen_w_t1_swp_cnt':
+        # Swap the positions of context 1 and context 2 to study the influence of position
+        # context 1 are movie reviews for sentiment classification
+        # context 2 are SMS messages for spam classification
+        PROMPT_TEMPLATE = (
+            "context 1: {c1}; \ncontext 2: {c2}.\n "
+            "Task: sentiment analysis of context 2; the only labels: positive or negative.\n"
+            "Sentiment of context 2 is "
+        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '**'
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_2, c2=context_1)
+    elif template_type == 'sen_w_t2_swp_cnt':
+        # Swap the positions of context 1 and context 2 to study the influence of position
+        # context 1 are movie reviews for sentiment classification
+        # context 2 are SMS messages for spam classification
+        PROMPT_TEMPLATE = (
+            "context 1: {c1}; \ncontext 2: {c2}.\n "
+            "Task: classify SMS in context 1 as spam or ham (not a spam).\n"
+            "Context 1 is classified as "
+        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '**'
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_2, c2=context_1)
+    elif template_type == 'sen_w_b_swp_cnt':
+        PROMPT_TEMPLATE = (
+            "context 1: {c1}; \ncontext 2: {c2}.\n "
+        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '**'
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_2, c2=context_1)
+
     elif template_type == 'lay_w_t1':
         if 'gemma' in model:
             PROMPT_TEMPLATE = (

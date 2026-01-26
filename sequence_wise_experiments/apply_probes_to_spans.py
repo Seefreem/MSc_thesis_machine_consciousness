@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument(
         "--target_file",
         type=str,
-        default="imdb_sms_interval_1_pairs_with_activations.json",
+        default="data_with_activations.json",
         help="Target JSON file name",
     )
     parser.add_argument(

@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument(
         "--target_file",
         type=str,
-        default="imdb_sms_interval_1_pairs_with_activations.json",
+        default="data_with_activations.json",
         help="Target JSON file name",
     )
     parser.add_argument(
@@ -64,7 +64,9 @@ def parse_args():
         "--task", 
         type=str, 
         default='sen_w_t1',
-        help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
+        help=('Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, '
+              'sen_w_t1_swp_cnt, sen_w_t2_swp_cnt, sen_w_b_swp_cnt, '
+              'lay_w_t1, lay_w_t2, lay_w_b, and selective_attention')
     ) 
     parser.add_argument(
         "--probe_type", 
