@@ -187,7 +187,10 @@ if __name__ == "__main__":
         default='sen_w_t1',
         help=('Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, '
               'sen_w_t1_swp_cnt, sen_w_t2_swp_cnt, sen_w_b_swp_cnt, '
-              'lay_w_t1, lay_w_t2, lay_w_b, and selective_attention')
+              'sen_w_t1_task_as_pfx, sen_w_t2_task_as_pfx, sen_w_b_task_as_pfx, '
+              'lay_w_t1, lay_w_t2, lay_w_b, '
+              'lay_w_t1_task_as_pfx, lay_w_t2_task_as_pfx, lay_w_b_task_as_pfx, '
+              'and selective_attention')
         ) 
 
     args = parser.parse_args()

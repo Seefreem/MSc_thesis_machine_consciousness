@@ -17,14 +17,31 @@ SPAN_LABELS = [
     "context2_prefix",  # "context 2: "
     "context2",         # "{c2}.\n "
     "task",             # "Task: sentiment analysis ... Sentiment of context 1 is "
-    "last_token",            # "_"
+    "last_token",       # "_"
+]
+SPAN_LABELS_TAP = [
+    "task",             # "Task: sentiment analysis ..."
+    "context1_prefix",  # "context 1: "
+    "context1",         # "{c1}; \n"
+    "context2_prefix",  # "context 2: "
+    "context2",         # "{c2}.\n "
+    "question",         # Answer: the sentiment of context 1 is 
+    "last_token",       # "_"
 ]
 
 SPAN_LABELS_EXP2 = [
     "context_prefix",  # "context: "
     "context",         # "{c1}. \n"
-    "task",             # "Task: Binary humor classification ... Answer: The given context is"
-    "last_token",            # "_"
+    "task",            # "Task: Binary humor classification ... Answer: The given context is"
+    "last_token",      # "_"
+]
+
+SPAN_LABELS_EXP2_TAP = [
+    "task",            # "Task: Binary humor classification ... "
+    "context_prefix",  # "context: "
+    "context",         # "{c1}. \n"
+    "question",        # Answer: The given context is
+    "last_token",      # "_"
 ]
 
 def plot_magnitude(mag_matrix, x_ticks, y_ticks, 
@@ -200,7 +217,7 @@ def compute_token_spans_for_sample(model, sample, tokenizer, task):
             s4 = (
                 " Task: classify SMS incontext 2 as spam or ham (not a spam).\nContext 2 is classified as"
             )
-    if task == 'sen_w_t1_swp_cnt':
+    elif task == 'sen_w_t1_swp_cnt':
         s4 = (
             " Task: sentiment analysis of context 2; the only labels: positive or negative.\n"
             "Sentiment of context 2 is"
@@ -255,6 +272,76 @@ def compute_token_spans_for_sample(model, sample, tokenizer, task):
             SPAN_LABELS[4] in token_span_ranges.keys()):
             raise ValueError(f'Key words not found of the sample: {sample}')
         token_span_ranges[SPAN_LABELS[3]] = [token_span_ranges[SPAN_LABELS[2]][1], token_span_ranges[SPAN_LABELS[4]][0]]
+    return token_span_ranges, token_ids_wp
+
+def compute_token_spans_for_sample_task_as_pfx(model, sample, tokenizer, task):
+    wrapped_prompt = sample["wrapped_prompt"]
+
+    s0 = 'Task:'
+    s1 = "context 1:"
+    s2 = "; \n"
+    s3 = "context 2:"
+    s4 = ".\n "
+    s5 = "Answer:"
+    s6 = "_"
+    if task == 'sen_w_t1_task_as_pfx':
+        s0 = "Task: sentiment analysis of context 1; the only labels: positive or negative.\n"
+        s5 = "Answer: the sentiment of context 1 is"
+    elif task == 'sen_w_t2_task_as_pfx':
+        s0 = "Task: classify SMS in context 2 as spam or ham (not a spam).\n"
+        s5 = "Answer: context 2 is classified as"
+    elif 'sen_w_b' in task:
+        pass
+    else:
+        raise ValueError(f"Unhandled task: {task}")
+        
+    token_span_ranges = {}
+    token_ids_wp = tokenizer(wrapped_prompt, padding=False)['input_ids']
+    token_ids_s0 = tokenizer(s0, add_special_tokens=False)['input_ids']
+    token_ids_s1 = tokenizer(s1, add_special_tokens=False)['input_ids']
+    token_ids_s3 = tokenizer(s3, add_special_tokens=False)['input_ids']
+    token_ids_s5 = tokenizer(s5, add_special_tokens=False)['input_ids']
+    # print(token_ids_wp.shap, token_ids_wp)
+    # print(token_ids_s0.shape, token_ids_s0)
+    
+    if 'sen_w_b' in task:
+        pieces = [token_ids_s1, token_ids_s3]
+        labels = [SPAN_LABELS_TAP[1], SPAN_LABELS_TAP[3]]
+    else:
+        pieces = [token_ids_s0, token_ids_s1, token_ids_s3, token_ids_s5]
+        labels = [SPAN_LABELS_TAP[0], SPAN_LABELS_TAP[1], SPAN_LABELS_TAP[3], SPAN_LABELS_TAP[5]]
+    
+    for (span, label) in zip(pieces, labels):
+        len_span = len(span)
+        for i in range(len(token_ids_wp) - len_span):
+            # print(span == token_ids_wp[i:i + len_span])
+            # print((span == token_ids_wp[i:i + len_span]))
+            if (span == token_ids_wp[i:i + len_span]):
+                # print(f'Found the span of {label}')
+                start_s0 = i
+                end_s0 = i + len_span
+                token_span_ranges[label] = [start_s0, end_s0]
+                break
+                
+    token_span_ranges[SPAN_LABELS_TAP[6]] = [len(token_ids_wp) - 1, len(token_ids_wp)]
+    # check 
+    if 'sen_w_b' in task:
+        if not (SPAN_LABELS_TAP[1] in token_span_ranges.keys() and 
+                SPAN_LABELS_TAP[3] in token_span_ranges.keys() and
+                SPAN_LABELS_TAP[6] in token_span_ranges.keys()):
+            raise ValueError(f'Key words not found of the sample: {sample}')
+        token_span_ranges[SPAN_LABELS_TAP[2]] = [token_span_ranges[SPAN_LABELS_TAP[1]][1], token_span_ranges[SPAN_LABELS_TAP[3]][0]]
+        token_span_ranges[SPAN_LABELS_TAP[4]] = [token_span_ranges[SPAN_LABELS_TAP[3]][1], len(token_ids_wp) - 1]
+    else:
+        if not (SPAN_LABELS_TAP[0] in token_span_ranges.keys() and 
+                SPAN_LABELS_TAP[1] in token_span_ranges.keys() and 
+                SPAN_LABELS_TAP[3] in token_span_ranges.keys() and 
+                SPAN_LABELS_TAP[5] in token_span_ranges.keys() and 
+                SPAN_LABELS_TAP[6] in token_span_ranges.keys()):
+            print('token_span_ranges:\n', token_span_ranges)
+            raise ValueError(f'Key words not found of the sample: {sample}')
+        token_span_ranges[SPAN_LABELS_TAP[2]] = [token_span_ranges[SPAN_LABELS_TAP[1]][1], token_span_ranges[SPAN_LABELS_TAP[3]][0]]
+        token_span_ranges[SPAN_LABELS_TAP[4]] = [token_span_ranges[SPAN_LABELS_TAP[3]][1], token_span_ranges[SPAN_LABELS_TAP[5]][0]]
     return token_span_ranges, token_ids_wp
     
 def compute_token_spans_for_exp2_samples(model, sample, tokenizer, task):
@@ -324,6 +411,62 @@ def compute_token_spans_for_exp2_samples(model, sample, tokenizer, task):
             raise ValueError(f'Key words not found of the sample: {sample}')
         token_span_ranges[SPAN_LABELS_EXP2[1]] = [token_span_ranges[SPAN_LABELS_EXP2[0]][1], token_span_ranges[SPAN_LABELS_EXP2[2]][0]]
     # print('token_span_ranges\n', token_span_ranges)
+    return token_span_ranges, token_ids_wp
+
+def compute_token_spans_for_exp2_samples_task_as_pfx(model, sample, tokenizer, task):
+    wrapped_prompt = sample["wrapped_prompt"]
+
+    s0 = 'Task:'
+    s1 = "Context:"
+    s2 = ""
+    s3 = 'Answer: The given context is'
+    s4 = "_"
+    if task == 'lay_w_t1_task_as_pfx':
+        s0 = "Task: Binary humor classification of the given context (humorous or not humorous).\n"
+    elif task == 'lay_w_t2_task_as_pfx':
+        s0 = "Task: Binary offense classification of the given context (offensive or not offensive).\n"
+    elif task == 'lay_w_b_task_as_pfx':
+        pass
+    else:
+        raise ValueError(f"Unhandled task: {task}")
+        
+    token_span_ranges = {}
+    token_ids_wp = tokenizer(wrapped_prompt, padding=False)['input_ids']
+    token_ids_s0 = tokenizer(s0, add_special_tokens=False)['input_ids']
+    token_ids_s1 = tokenizer(s1, add_special_tokens=False)['input_ids']
+    token_ids_s3 = tokenizer(s3, add_special_tokens=False)['input_ids']
+    
+    if task == 'lay_w_b_task_as_pfx':
+        pieces = [token_ids_s1]
+        labels = [SPAN_LABELS_EXP2_TAP[1]]
+    else:
+        pieces = [token_ids_s0, token_ids_s1, token_ids_s3]
+        labels = [SPAN_LABELS_EXP2_TAP[0], SPAN_LABELS_EXP2_TAP[1], SPAN_LABELS_EXP2_TAP[3]]
+    
+    for (span, label) in zip(pieces, labels):
+        len_span = len(span)
+        for i in range(len(token_ids_wp) - len_span):
+            if (span == token_ids_wp[i:i + len_span]):
+                start_s0 = i
+                end_s0 = i + len_span
+                token_span_ranges[label] = [start_s0, end_s0]
+                break
+    # check 
+    token_span_ranges[SPAN_LABELS_EXP2_TAP[4]] = [len(token_ids_wp) - 1, len(token_ids_wp)]
+    if 'lay_w_b' in task:
+        if not (SPAN_LABELS_EXP2_TAP[1] in token_span_ranges.keys() and 
+                SPAN_LABELS_EXP2_TAP[4] in token_span_ranges.keys()):
+            print('task:', task, '\ntoken_span_ranges',token_span_ranges)
+            raise ValueError(f'Key words not found of the sample: {sample}')
+        token_span_ranges[SPAN_LABELS_EXP2_TAP[2]] = [token_span_ranges[SPAN_LABELS_EXP2_TAP[1]][1], token_span_ranges[SPAN_LABELS_EXP2_TAP[4]][0]]
+    else:
+        if not (SPAN_LABELS_EXP2_TAP[0] in token_span_ranges.keys() and 
+                SPAN_LABELS_EXP2_TAP[1] in token_span_ranges.keys() and 
+                SPAN_LABELS_EXP2_TAP[3] in token_span_ranges.keys() and 
+                SPAN_LABELS_EXP2_TAP[4] in token_span_ranges.keys()):
+            print('task:', task, '\ntoken_span_ranges',token_span_ranges)
+            raise ValueError(f'Key words not found of the sample: {sample}')
+        token_span_ranges[SPAN_LABELS_EXP2_TAP[2]] = [token_span_ranges[SPAN_LABELS_EXP2_TAP[1]][1], token_span_ranges[SPAN_LABELS_EXP2_TAP[3]][0]]
     return token_span_ranges, token_ids_wp
 
 def set_seed(seed: int):
@@ -422,6 +565,39 @@ def wrap_example(model, context_1: str, context_2: str, template_type: str) -> s
         elif 'llama' in model:
             PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
         PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_2, c2=context_1)
+    elif template_type == 'sen_w_t1_task_as_pfx':
+        # The task instruction is front-loaded as the prompt prefix; output cue unchanged.
+        PROMPT_TEMPLATE = (
+            "Task: sentiment analysis of context 1; the only labels: positive or negative.\n"
+            "context 1: {c1}; \ncontext 2: {c2}.\n"
+            "Answer: the sentiment of context 1 is "
+        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '**'
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
+    elif template_type == 'sen_w_t2_task_as_pfx':
+        # The task instruction is front-loaded as the prompt prefix; output cue unchanged.
+        PROMPT_TEMPLATE = (
+            "Task: classify SMS in context 2 as spam or ham (not a spam).\n"
+            "context 1: {c1}; \ncontext 2: {c2}.\n"
+            "Answer: context 2 is classified as "
+        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '**'
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
+    elif template_type == 'sen_w_b_task_as_pfx':
+        PROMPT_TEMPLATE = (
+            "context 1: {c1}; \ncontext 2: {c2}.\n "
+        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '**'
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1, c2=context_2)
 
     elif template_type == 'lay_w_t1':
         if 'gemma' in model:
@@ -460,6 +636,34 @@ def wrap_example(model, context_1: str, context_2: str, template_type: str) -> s
             PROMPT_TEMPLATE = (
                 "Context: {c1}. _"
             )
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1)
+    elif template_type == 'lay_w_t1_task_as_pfx':
+        PROMPT_TEMPLATE = (
+            "Task: Binary humor classification of the given context (humorous or not humorous).\n"
+            "Context: {c1}. \n"
+            "Answer: The given context is "
+        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '**'
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1)
+    elif template_type == 'lay_w_t2_task_as_pfx':
+        PROMPT_TEMPLATE = (
+            "Task: Binary offense classification of the given context (offensive or not offensive).\n"
+            "Context: {c1}. \n"
+            "Answer: The given context is "
+        )
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '**'
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = PROMPT_TEMPLATE + '_'
+        PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1)
+    elif template_type == 'lay_w_b_task_as_pfx':
+        if 'gemma' in model:
+            PROMPT_TEMPLATE = ("Context: {c1}. **")
+        elif 'llama' in model:
+            PROMPT_TEMPLATE = ("Context: {c1}. _")
         PROMPT_TEMPLATE = PROMPT_TEMPLATE.format(c1=context_1)
     elif template_type == 'selective_attention':
         raise ValueError(f"Unhandled template type {template_type}")

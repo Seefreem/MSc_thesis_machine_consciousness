@@ -14,7 +14,9 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.exceptions import NotFittedError
 from myutilities import set_seed, load_metadata, infer_dims
 from myutilities import compute_token_spans_for_sample
+from myutilities import compute_token_spans_for_sample_task_as_pfx
 from myutilities import compute_token_spans_for_exp2_samples
+from myutilities import compute_token_spans_for_exp2_samples_task_as_pfx
 from myutilities import save_updated_json
 from myutilities import load_probes
 from myutilities import save_layer_results 
@@ -22,7 +24,7 @@ from myutilities import compute_avg_acc_mag
 from myutilities import save_matrices
 from myutilities import plot_acc 
 from myutilities import plot_magnitude
-from myutilities import SPAN_LABELS, SPAN_LABELS_EXP2
+from myutilities import SPAN_LABELS, SPAN_LABELS_EXP2, SPAN_LABELS_TAP, SPAN_LABELS_EXP2_TAP
 
 # Configure logging
 logging.basicConfig(
@@ -69,7 +71,11 @@ def parse_args():
         "--task", 
         type=str, 
         default='sen_w_t1',
-        help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
+        help=('Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, '
+              'sen_w_t1_swp_cnt, sen_w_t2_swp_cnt, sen_w_b_swp_cnt, '
+              'sen_w_t1_task_as_pfx, sen_w_t2_task_as_pfx, sen_w_b_task_as_pfx, '
+              'lay_w_t1_task_as_pfx, lay_w_t2_task_as_pfx, lay_w_b_task_as_pfx, '
+              'lay_w_t1, lay_w_t2, lay_w_b, and selective_attention')
         ) 
 
     return parser.parse_args()
@@ -80,14 +86,20 @@ def main():
     print(args)
     exp1_tasks = {'sen_w_t1', 'sen_w_t2', 'sen_w_b'}
     exp1_tasks_swp_cnt = {'sen_w_t1_swp_cnt', 'sen_w_t2_swp_cnt', 'sen_w_b_swp_cnt'}
+    exp1_tasks_tap = {'sen_w_t1_task_as_pfx', 'sen_w_t2_task_as_pfx', 'sen_w_b_task_as_pfx'}
     exp2_tasks = {'lay_w_t1', 'lay_w_t2', 'lay_w_b'}
+    exp2_tasks_tap = {'lay_w_t1_task_as_pfx', 'lay_w_t2_task_as_pfx', 'lay_w_b_task_as_pfx'}
     target_file_name= "data_with_activations.json"
     if args.task in exp1_tasks:
         tasks = ['sen_w_t1', 'sen_w_t2', 'sen_w_b']
-    if args.task in exp1_tasks_swp_cnt:
+    elif args.task in exp1_tasks_swp_cnt:
         tasks = ['sen_w_t1_swp_cnt', 'sen_w_t2_swp_cnt', 'sen_w_b_swp_cnt']
+    elif args.task in exp1_tasks_tap:
+        tasks = ['sen_w_t1_task_as_pfx', 'sen_w_t2_task_as_pfx', 'sen_w_b_task_as_pfx']
     elif args.task in exp2_tasks:
         tasks = ['lay_w_t1', 'lay_w_t2', 'lay_w_b']
+    elif args.task in exp2_tasks_tap:
+        tasks = ['lay_w_t1_task_as_pfx', 'lay_w_t2_task_as_pfx', 'lay_w_b_task_as_pfx']
     else:
         raise ValueError(f'unhandled task {args.task}')
     input_base_dir = os.path.join(args.data_dir, args.model_name)
@@ -121,15 +133,27 @@ def main():
         for i, sample in enumerate(data_all[task]):            
             # token_span_ranges, input_ids = compute_token_spans_for_sample(args.model_name, sample, tokenizer, task)
             if 'sen_w' in args.task:
-                token_span_ranges, input_ids = compute_token_spans_for_sample(
-                    args.model_name, sample, tokenizer, task
-                )
-                span_labels = SPAN_LABELS
+                if 'task_as_pfx' in args.task:
+                    token_span_ranges, input_ids = compute_token_spans_for_sample_task_as_pfx(
+                        args.model_name, sample, tokenizer, task
+                    )
+                    span_labels = SPAN_LABELS_TAP
+                else:
+                    token_span_ranges, input_ids = compute_token_spans_for_sample(
+                        args.model_name, sample, tokenizer, task
+                    )
+                    span_labels = SPAN_LABELS
             elif 'lay_w' in args.task:
-                token_span_ranges, input_ids = compute_token_spans_for_exp2_samples(
-                    args.model_name, sample, tokenizer, task
-                )
-                span_labels = SPAN_LABELS_EXP2
+                if 'task_as_pfx' in args.task:
+                    token_span_ranges, input_ids = compute_token_spans_for_exp2_samples_task_as_pfx(
+                        args.model_name, sample, tokenizer, task
+                    )
+                    span_labels = SPAN_LABELS_EXP2_TAP
+                else:
+                    token_span_ranges, input_ids = compute_token_spans_for_exp2_samples(
+                        args.model_name, sample, tokenizer, task
+                    )
+                    span_labels = SPAN_LABELS_EXP2
             else:
                 raise ValueError(f'Unhandled task type {args.task}')
             sample["token_spans"] = token_span_ranges
@@ -169,13 +193,25 @@ def main():
         data = data_all[task]
         x_labels = []
         if 'sen_w_t' in task:
-            x_labels = SPAN_LABELS
+            if 'task_as_pfx' in task:
+                x_labels = SPAN_LABELS_TAP
+            else:
+                x_labels = SPAN_LABELS
         elif 'sen_w_b' in task:
-            x_labels = SPAN_LABELS[:4] + SPAN_LABELS[-1:]
-        elif task == 'lay_w_t1' or task == 'lay_w_t2':
-            x_labels = SPAN_LABELS_EXP2
-        elif task == 'lay_w_b':
-            x_labels = SPAN_LABELS_EXP2[:2] + SPAN_LABELS_EXP2[-1:]
+            if 'task_as_pfx' in task:
+                x_labels = SPAN_LABELS_TAP[1:5] + SPAN_LABELS_TAP[-1:]
+            else:
+                x_labels = SPAN_LABELS[:4] + SPAN_LABELS[-1:]
+        elif 'lay_w_t' in task:
+            if 'task_as_pfx' in task:
+                x_labels = SPAN_LABELS_EXP2_TAP
+            else:
+                x_labels = SPAN_LABELS_EXP2
+        elif 'lay_w_b' in task:
+            if 'task_as_pfx' in task:
+                x_labels = SPAN_LABELS_EXP2_TAP[1:3] + SPAN_LABELS_EXP2_TAP[-1:]
+            else:
+                x_labels = SPAN_LABELS_EXP2[:2] + SPAN_LABELS_EXP2[-1:]
         else:
             raise ValueError(f'Unhandled task {task}')
         n_spans = len(x_labels)
@@ -188,9 +224,9 @@ def main():
                 label_feature='label_context_1'
             elif 'sen_w_t2' in probe_task:
                 label_feature='label_context_2'
-            if probe_task == 'lay_w_t1':
+            if 'lay_w_t1' in probe_task:
                 label_feature='is_humor'
-            elif probe_task == 'lay_w_t2':
+            elif 'lay_w_t2' in probe_task:
                 label_feature='is_offensive'
 
             probes = all_probes[probe_task]

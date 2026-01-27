@@ -14,14 +14,16 @@ from sklearn.exceptions import NotFittedError
 
 from myutilities import set_seed, load_metadata, infer_dims
 from myutilities import compute_token_spans_for_sample
+from myutilities import compute_token_spans_for_sample_task_as_pfx
 from myutilities import compute_token_spans_for_exp2_samples
+from myutilities import compute_token_spans_for_exp2_samples_task_as_pfx
 from myutilities import save_updated_json
 from myutilities import load_probes
 from myutilities import compute_avg_acc_mag
 from myutilities import save_matrices
 from myutilities import plot_acc 
 from myutilities import plot_magnitude
-from myutilities import SPAN_LABELS, SPAN_LABELS_EXP2
+from myutilities import SPAN_LABELS, SPAN_LABELS_EXP2, SPAN_LABELS_TAP, SPAN_LABELS_EXP2_TAP
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -67,7 +69,11 @@ def parse_args():
         "--task", 
         type=str, 
         default='sen_w_t1',
-        help='Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, lay_w_t1, lay_w_t2, lay_w_b, and selective_attention'
+        help=('Candidate tasks: sen_w_t1, sen_w_t2, sen_w_b, '
+              'sen_w_t1_swp_cnt, sen_w_t2_swp_cnt, sen_w_b_swp_cnt, '
+              'sen_w_t1_task_as_pfx, sen_w_t2_task_as_pfx, sen_w_b_task_as_pfx, '
+              'lay_w_t1_task_as_pfx, lay_w_t2_task_as_pfx, lay_w_b_task_as_pfx, '
+              'lay_w_t1, lay_w_t2, lay_w_b, and selective_attention')
         ) 
     parser.add_argument(
         "--probe_base_dir", 
@@ -129,15 +135,27 @@ def main():
     span_labels = SPAN_LABELS
     for i, sample in enumerate(data):
         if 'sen_w' in args.task:
-            token_span_ranges, input_ids = compute_token_spans_for_sample(
-                args.model_name, sample, tokenizer, args.task
-            )
-            span_labels = SPAN_LABELS
+            if 'task_as_pfx' in args.task:
+                token_span_ranges, input_ids = compute_token_spans_for_sample_task_as_pfx(
+                    args.model_name, sample, tokenizer, args.task
+                )
+                span_labels = SPAN_LABELS_TAP
+            else:
+                token_span_ranges, input_ids = compute_token_spans_for_sample(
+                    args.model_name, sample, tokenizer, args.task
+                )
+                span_labels = SPAN_LABELS
         elif 'lay_w' in args.task:
-            token_span_ranges, input_ids = compute_token_spans_for_exp2_samples(
-                args.model_name, sample, tokenizer, args.task
-            )
-            span_labels = SPAN_LABELS_EXP2
+            if 'task_as_pfx' in args.task:
+                token_span_ranges, input_ids = compute_token_spans_for_exp2_samples_task_as_pfx(
+                    args.model_name, sample, tokenizer, args.task
+                )
+                span_labels = SPAN_LABELS_EXP2_TAP
+            else:
+                token_span_ranges, input_ids = compute_token_spans_for_exp2_samples(
+                    args.model_name, sample, tokenizer, args.task
+                )
+                span_labels = SPAN_LABELS_EXP2
         else:
             raise ValueError(f'Unhandled task type {args.task}')
         sample["token_spans"] = token_span_ranges
