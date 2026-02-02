@@ -39,6 +39,20 @@ def load_hahackathon_combined_for_transformer(
 
     return data, ds
 
+def load_iab_for_transformer(
+    json_path: str = './_datasets/IAB/iab.json',
+):
+    """
+    Load combined_subset.json and convert it into a tokenized HuggingFace Dataset
+    suitable for Transformer models.
+    """
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    ds = Dataset.from_list(data).cast_column("answer_1", Value("float32"))
+    ds = ds.cast_column("answer_2", Value("float32"))
+
+    return data, ds
+
 # def main():
 #     imdb_sms = load_imdb_sms_for_transformer()
 #     print(imdb_sms.select([1]).features)

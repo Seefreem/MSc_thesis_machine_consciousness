@@ -356,7 +356,7 @@ def main() -> None:
     # Tweak these knobs as you like
     dis_roles = ["teacher", "cleaner", "dog"]
     n_samples_per_role = 10
-    length_range = list(range(8, 13))
+    length_range = list(range(6, 8))
     samples_json = []
     activity_str = set()
     for lenth in length_range:
@@ -372,28 +372,33 @@ def main() -> None:
                         spawn_steps=lenth,            # how long we keep introducing new students
                         students_per_step=(1, 2),  # randomly 1 or 2 students each step
                         student_max_timer=3,       # timer 0..3 (max 4 time steps per entity)
-                        distractor_duration=3,     # short unexpected event
+                        distractor_duration=2,     # short unexpected event
                     )
                     log, summary = classroom.run(print_log=True)
                     if not ("\n".join(log) in activity_str):
                         activity_str.add("\n".join(log))
                         for gen_of_focus in GENDERS:
-                            summary['prompt_template'] = "Introduction: You will first see a sequence of activities in a classroom and then answer a question.\n Question: {c1};\n Activities in the classroom: {c2};\n Your answer: there are _"
+                            summary['prompt_template'] = "Introduction: You will be given a sequence of activities in a classroom. Count {c1}\nActivities in the classroom: {c2};\n\nYour answer: there are/is "
                             summary['activities'] = "\n".join(log)
-                            summary['question_1'] = f'how many {gen_of_focus} students had submitted their homework papers?'
-                            summary['answer_1'] = summary['students'][gen_of_focus]
-                            summary['question_2'] = f'Did you see a {role} in the classroom?'
+                            summary['question_1'] = f'how many {gen_of_focus} students had submitted their homework papers.'
+                            # summary['prompt_template'] += f'\nA reiteration of the question: how many {gen_of_focus} students had submitted their homework papers?\nYour answer: there are '
+                            # summary['prompt_template'] += f'\nAnswer with a digit.'
+                            summary['answer_1'] = summary['homework'][gen_of_focus]
+                            summary['question_2'] = f'A follow-up question: according to the activities, was there a {role} in the classroom?\nAnswer with Yes or No.'
+                             
                             summary['answer_2'] = 1 # Did see the distractor
-                            samples_json.append(summary)   
+                            samples_json.append(dict(summary)) # deep copy      
 
-                            summary['prompt_template'] = "Introduction: You will first see a sequence of activities in a classroom and then answer a question.\n Question: {c1};\n Activities in the classroom: {c2};\n Your answer: there are _"
+                            summary['prompt_template'] = "Introduction: You will be given a sequence of activities in a classroom. Count {c1}\nActivities in the classroom: {c2};\n\nYour answer: there are/is "
                             summary['activities'] = "\n".join(log)
-                            summary['question_1'] = f'how many {gen_of_focus} students had submitted their homework papers?'
-                            summary['answer_1'] = summary['students'][gen_of_focus]
+                            summary['question_1'] = f'how many {gen_of_focus} students had submitted their homework papers.'
+                            # summary['prompt_template'] += f'\nA reiteration of the question: how many {gen_of_focus} students had submitted their homework papers?\nYour answer: there are '
+                            # summary['prompt_template'] += f'\nAnswer with a digit.'
+                            summary['answer_1'] = summary['homework'][gen_of_focus]
                             non_target_role = random.choice([ite for ite in dis_roles if not ite==role])
-                            summary['question_2'] = f'Did you see a {non_target_role} in the classroom?'
+                            summary['question_2'] = f'A follow-up question: according to the activities, was there a {non_target_role} in the classroom?\nAnswer with Yes or No.'
                             summary['answer_2'] = 0 # Did not see the distractor
-                            samples_json.append(summary) 
+                            samples_json.append(dict(summary))  # deep copy
                     time.sleep(11.0/1000.0)  
     os.makedirs('./_datasets/IAB/', exist_ok=True)
     print('=========An Exmaple of Generated Data=========')
