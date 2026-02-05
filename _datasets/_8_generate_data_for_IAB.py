@@ -179,6 +179,22 @@ class Dog(Entity):
         return random.choice(self.action_set)
 
 
+@dataclass
+class Robot(Entity):
+    role: str = "robot"
+
+    def __post_init__(self) -> None:
+        # Keeping gender for dog too, since you requested it.
+        if self.gender not in GENDERS:
+            raise ValueError(f"Invalid gender: {self.gender}")
+        self.action_set = (ACTION_SIT, ACTION_NOTHING)
+
+    def get_action(self) -> str:
+        if self.timer == 0:
+            return ACTION_COME_IN
+        if self.timer >= self.max_timer:
+            return ACTION_LEAVE
+        return random.choice(self.action_set)
 # -----------------------------
 # Classroom manager
 # -----------------------------
@@ -210,6 +226,7 @@ class Classroom:
             "teacher": {"female": 0, "male": 0},
             "cleaner": {"female": 0, "male": 0},
             "dog": {"female": 0, "male": 0},
+            "robot": {"female": 0, "male": 0},
             "homework": {"female": 0, "male": 0},
             "total time": 0,
             "unexpected event": [],  # timestamps while unexpected event happening
@@ -217,7 +234,7 @@ class Classroom:
 
         # Schedule distractor in the middle of the "active" phase
         if distractor_role is None:
-            self.distractor_role: str = random.choice(["teacher", "cleaner", "dog"])
+            self.distractor_role: str = random.choice(["teacher", "cleaner", "dog", "robot"])
         else:
             self.distractor_role = distractor_role
         if distractor_gender is None:
@@ -251,9 +268,10 @@ class Classroom:
             e: Entity = Teacher(gender=self.distractor_gender, max_timer=max_timer)
         elif self.distractor_role == "cleaner":
             e = Cleaner(gender=self.distractor_gender, max_timer=max_timer)
-        else:
+        elif self.distractor_role == "dog":
             e = Dog(gender=self.distractor_gender, max_timer=max_timer)
-
+        else:
+            e = Robot(gender=self.distractor_gender, max_timer=max_timer)
         self.entities.append(e)
         self.summary[self.distractor_role][self.distractor_gender] += 1  # type: ignore[index]
         self.distractor_spawned = True
@@ -278,8 +296,8 @@ class Classroom:
             counts[key] = counts.get(key, 0) + 1
 
         parts: List[str] = []
-        # A stable-ish order: action first, then student/teacher/cleaner/dog; and by gender
-        role_order = {"student": 0, "teacher": 1, "cleaner": 2, "dog": 3}
+        # A stable-ish order: action first, then student/teacher/cleaner/dog/robot; and by gender
+        role_order = {"student": 0, "teacher": 1, "cleaner": 2, "dog": 3, "robot": 4}
         action_order = {
             ACTION_COME_IN: 0,
             ACTION_HAND_IN: 1,
@@ -354,9 +372,9 @@ class Classroom:
 
 def main() -> None:
     # Tweak these knobs as you like
-    dis_roles = ["teacher", "cleaner", "dog"]
+    dis_roles = ["teacher", "cleaner", "dog", "robot"]
     n_samples_per_role = 10
-    length_range = list(range(6, 8))
+    length_range = list(range(8, 12))
     samples_json = []
     activity_str = set()
     for lenth in length_range:
@@ -372,7 +390,7 @@ def main() -> None:
                         spawn_steps=lenth,            # how long we keep introducing new students
                         students_per_step=(1, 2),  # randomly 1 or 2 students each step
                         student_max_timer=3,       # timer 0..3 (max 4 time steps per entity)
-                        distractor_duration=2,     # short unexpected event
+                        distractor_duration=3,     # short unexpected event
                     )
                     log, summary = classroom.run(print_log=True)
                     if not ("\n".join(log) in activity_str):

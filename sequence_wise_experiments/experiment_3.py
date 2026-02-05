@@ -78,7 +78,7 @@ def normal_kv_cache_mode(model, tokenizer, first_prompt,
     messages.append({"role": "user", "content": example['question_2']})
     input_ids = tokenizer.apply_chat_template(messages, add_generation_prompt=True, 
                                               return_tensors="pt", return_dict=True).to(device)
-    
+    input_length = input_ids["input_ids"].shape[1]
     # input_ids = tokenizer(prompt_2, return_tensors="pt", 
     #                         padding=False, truncation=True).to(device)
     if past_key_values_flag: ## kv-cache mode
@@ -87,8 +87,10 @@ def normal_kv_cache_mode(model, tokenizer, first_prompt,
     else: ## recompute mode
         full_seq_rcp, kv_cache_rcp = generate_with_return_cache(
             model, input_ids, past_key_values=None)
+    completion = tokenizer.decode(full_seq_rcp[0, input_length: ], skip_special_tokens=True)
+    messages.append({"role": "assistant", "content": completion})
     full_seq_rcp = tokenizer.decode(full_seq_rcp[0])
-    return full_seq_rcp, kv_cache_rcp
+    return full_seq_rcp, kv_cache_rcp, messages
 
 # masked kv-cache mode
 def masked_kv_cache_mode(model, tokenizer, first_prompt, example, device, verbose=False):
@@ -138,6 +140,8 @@ def masked_kv_cache_mode(model, tokenizer, first_prompt, example, device, verbos
                 # Allow the model to attend to the last token of the input.
                 print("**Masked tokens**:", tokenizer.decode(input_ids["input_ids"][0][i:i + len_span - 1]))
             break
+        elif i == (input_length - len_span - 1):
+            raise ValueError('Not find a matched span')
     if verbose:
         print('attention_mask:', input_ids["attention_mask"])
     
@@ -145,8 +149,10 @@ def masked_kv_cache_mode(model, tokenizer, first_prompt, example, device, verbos
     full_seq_2, kv_cache_2 = generate_with_return_cache(
         model, input_ids, past_key_values)
     
+    completion = tokenizer.decode(full_seq_2[0, input_length: ], skip_special_tokens=True)
+    messages.append({"role": "assistant", "content": completion})
     full_seq_2 = tokenizer.decode(full_seq_2[0])
-    return full_seq_2, kv_cache_2
+    return full_seq_2, kv_cache_2, messages
 
 def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
@@ -168,6 +174,8 @@ def main(args):
             prompt_template += '_'
         elif 'google' in args.model_name:
             prompt_template += '**'
+        else:
+            raise ValueError('Not handled model type')
         first_prompt = prompt_template.format(c1=example['question_1'], 
                                                  c2=example['activities'])
         # print()
@@ -175,49 +183,47 @@ def main(args):
         # Recompute mode
         if exp_idx < n_verbose:
             print('===========recompute mode:\n')
-        full_seq_rcp, kv_cache_rcp = normal_kv_cache_mode(
+        full_seq_rcp, kv_cache_rcp, messages_rcp = normal_kv_cache_mode(
             model, tokenizer, first_prompt, example, 
             past_key_values_flag=False, device=device,
             verbose=(n_verbose >= exp_idx))
-        original_data[exp_idx]['final_seq_recomputed'] = str(full_seq_rcp)
+        original_data[exp_idx]['final_seq_recomputed'] = messages_rcp
         if exp_idx < n_verbose:
             print('teacher:',  example['teacher'])
             print('cleaner:',  example['cleaner'])
             print('dog:',      example['dog'])
             print('homework:', example['homework'])
-            print('Final test:', full_seq_rcp)
+            print('Final test:', messages_rcp)
         
         ## KV-cache mode
         if exp_idx < n_verbose:
             print('===========KV-cache mode:\n')
-        full_seq_kv, kv_cache_kv = normal_kv_cache_mode(
+        full_seq_kv, kv_cache_kv, messages_kv = normal_kv_cache_mode(
             model, tokenizer, first_prompt, example, 
             past_key_values_flag=True, device=device,
             verbose=(n_verbose >= exp_idx))
-        original_data[exp_idx]['final_seq_kv_cache'] = str(full_seq_kv)
+        original_data[exp_idx]['final_seq_kv_cache'] = messages_kv
         if exp_idx < n_verbose:
             print('teacher:',  example['teacher'])
             print('cleaner:',  example['cleaner'])
             print('dog:',      example['dog'])
             print('homework:', example['homework'])
-            print('Final text:', full_seq_kv)
+            print('Final text:', messages_kv)
 
         ## masked kv-cache mode
         if exp_idx < n_verbose:
             print('===========masked kv-cache mode:\n')
-        full_seq_mkv, kv_cache_mkv = masked_kv_cache_mode(
+        full_seq_mkv, kv_cache_mkv, messages_mkv = masked_kv_cache_mode(
             model, tokenizer, first_prompt, example, device,
             verbose=(n_verbose >= exp_idx))
-        original_data[exp_idx]['final_seq_masked_kv'] = str(full_seq_mkv)
+        original_data[exp_idx]['final_seq_masked_kv'] = messages_mkv
         if exp_idx < n_verbose:
             print('teacher:',  example['teacher'])
             print('cleaner:',  example['cleaner'])
             print('dog:',      example['dog'])
             print('homework:', example['homework'])
-            print('Final text:', full_seq_mkv)
+            print('Final text:', messages_mkv)
         
-        if exp_idx == 20:
-            break
     # Save updated JSON list
     with open(args.json_out_file, "w", encoding="utf-8") as f:
         json.dump(original_data, f, ensure_ascii=False, indent=2)
