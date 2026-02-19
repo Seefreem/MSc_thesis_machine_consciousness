@@ -76,7 +76,7 @@ def register_hooks(args, model, layer_idx, alpha=1):
     # Llama-style: model.model.layers is a list of decoder layers
     decoder_layers = model.model.layers
     num_layers = len(decoder_layers)
-    print(f"num_layers: {num_layers}")
+    print(f"num_layers: {num_layers}", 'Interventing layer', layer_idx)
     if isinstance(model, LlamaForCausalLM):
         # NOTE, that the number of layers is 1 less than the stored hidden representation layers
         decoder_layers[layer_idx - 1].register_forward_hook(hook_fn) 

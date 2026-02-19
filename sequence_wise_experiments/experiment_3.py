@@ -43,6 +43,7 @@ def generate_with_return_cache(
         past_key_values=past_key_values,
         pad_token_id=pad_token_id,
         eos_token_id=model.generation_config.eos_token_id,
+        cache_implementation=None, # to be compatible with Gemma2 models
     )
     # for keys, values in past_key_values:
     #     print(keys.shape, values.shape) # [batch_size, num_heads, seq_len, head_dim]
